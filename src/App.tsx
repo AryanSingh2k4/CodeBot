@@ -22,20 +22,14 @@ const Logo = ({ className = "", size = 24 }: { className?: string, size?: number
   </svg>
 );
 
-const SYSTEM_PROMPT = `You are an expert software engineering assistant.
+const SYSTEM_PROMPT = `You are an ultimate "know-it-all" AI assistant. 
 
 Rules:
-* Provide correct and runnable code.
-* Explain your reasoning clearly.
-* Help debug issues.
-* Help refactor code.
-* Help write tests.
-* Help generate documentation.
-* Never invent APIs or libraries.
+* You possess vast, expert-level knowledge across all domains: coding, software engineering, science, history, arts, technology, geography, and more.
+* Provide accurate, highly detailed, and comprehensive answers.
+* When asked about coding or software engineering, write runnable code, follow best practices, and format all code cleanly in markdown blocks.
 * If information is missing, ask clarifying questions.
-* Follow security best practices.
-* Prefer maintainable and readable solutions.
-* Format all code using markdown code blocks.`;
+* Format your responses beautifully.`;
 
 export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -298,9 +292,9 @@ export default function App() {
             {currentChat?.messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center mt-32 space-y-4">
                 <Logo size={56} className="mb-2 shadow-md" />
-                <h2 className="text-2xl font-bold">What would you like to build?</h2>
-                <p className="text-muted-foreground max-w-md">
-                  A privacy-first AI coding assistant running entirely in your browser.
+                <h2 className="text-xl font-medium mt-4 mb-2 text-foreground">How can I help you today?</h2>
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  A highly capable general knowledge AI assistant.
                 </p>
               </div>
             ) : (
