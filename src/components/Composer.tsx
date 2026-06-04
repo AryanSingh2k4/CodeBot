@@ -52,7 +52,7 @@ export function Composer({
   };
 
   return (
-    <div className="flex flex-col bg-muted rounded-3xl p-2 px-4 shadow-[0_0_15px_rgba(0,0,0,0.1)] mx-4 mb-6 relative">
+    <div className="flex flex-col bg-muted rounded-3xl p-2 px-3 md:px-4 shadow-[0_0_15px_rgba(0,0,0,0.1)] mx-2 md:mx-4 mb-2 md:mb-6 relative">
       {attachedFiles.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-3">
           {attachedFiles.map(file => (

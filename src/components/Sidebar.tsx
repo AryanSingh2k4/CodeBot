@@ -33,6 +33,31 @@ export function Sidebar({
 
   const filteredChats = chats.filter(c => c.title.toLowerCase().includes(searchQuery.toLowerCase()));
 
+  const groupedChats = {
+    'Today': [] as Chat[],
+    'Yesterday': [] as Chat[],
+    'Previous 7 Days': [] as Chat[],
+    'Older': [] as Chat[]
+  };
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const yesterday = today - 86400000;
+  const previous7Days = today - 7 * 86400000;
+
+  filteredChats.forEach(chat => {
+    const chatDate = new Date(chat.updatedAt || chat.createdAt).getTime();
+    if (chatDate >= today) {
+      groupedChats['Today'].push(chat);
+    } else if (chatDate >= yesterday) {
+      groupedChats['Yesterday'].push(chat);
+    } else if (chatDate >= previous7Days) {
+      groupedChats['Previous 7 Days'].push(chat);
+    } else {
+      groupedChats['Older'].push(chat);
+    }
+  });
+
   const submitRename = (id: string) => {
     if (editTitle.trim()) {
       onRenameChat(id, editTitle.trim());
@@ -84,62 +109,72 @@ export function Sidebar({
         </div>
 
         <div className="flex-1 overflow-y-auto px-2 space-y-1">
-          {filteredChats.map(chat => (
-            <div 
-              key={chat.id}
-              className={cn(
-                "group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors",
-                currentChatId === chat.id ? "bg-muted text-foreground" : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
-              )}
-              onClick={() => {
-                onSelectChat(chat.id);
-                if (window.innerWidth < 768) setIsOpen(false);
-              }}
-            >
-              <div className="flex items-center gap-2 overflow-hidden flex-1">
-                <MessageSquare size={16} className="shrink-0" />
-                {editingChatId === chat.id ? (
-                  <input
-                    type="text"
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    onBlur={() => submitRename(chat.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') submitRename(chat.id);
-                      if (e.key === 'Escape') setEditingChatId(null);
+          {Object.entries(groupedChats).map(([group, groupChats]) => (
+            groupChats.length > 0 && (
+              <div key={group} className="mb-4">
+                <div className="text-xs font-semibold text-muted-foreground/70 px-3 mb-2 tracking-wider uppercase">
+                  {group}
+                </div>
+                {groupChats.map(chat => (
+                  <div 
+                    key={chat.id}
+                    className={cn(
+                      "group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors",
+                      currentChatId === chat.id ? "bg-muted text-foreground" : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => {
+                      onSelectChat(chat.id);
+                      if (window.innerWidth < 768) setIsOpen(false);
                     }}
-                    autoFocus
-                    className="w-full bg-transparent border-b border-primary outline-none text-sm"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                ) : (
-                  <span className="truncate text-sm">{chat.title}</span>
-                )}
+                  >
+                    <div className="flex items-center gap-2 overflow-hidden flex-1">
+                      <MessageSquare size={16} className="shrink-0" />
+                      {editingChatId === chat.id ? (
+                        <input
+                          type="text"
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') submitRename(chat.id);
+                            if (e.key === 'Escape') setEditingChatId(null);
+                          }}
+                          onBlur={() => submitRename(chat.id)}
+                          className="flex-1 bg-background border border-border rounded px-2 py-0.5 text-sm outline-none w-full text-foreground"
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span className="truncate text-sm font-medium">{chat.title}</span>
+                      )}
+                    </div>
+                    
+                    {!editingChatId && (
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingChatId(chat.id);
+                            setEditTitle(chat.title);
+                          }}
+                          className="p-1 hover:bg-black/10 rounded text-muted-foreground hover:text-foreground"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteChat(chat.id);
+                          }}
+                          className="p-1 hover:bg-black/10 rounded text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-              <div className="opacity-0 group-hover:opacity-100 flex items-center transition-opacity shrink-0">
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingChatId(chat.id);
-                    setEditTitle(chat.title);
-                  }}
-                  className="p-1 hover:text-foreground transition-colors mr-1"
-                  title="Rename chat"
-                >
-                  <Edit2 size={14} />
-                </button>
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteChat(chat.id);
-                  }}
-                  className="p-1 hover:text-destructive transition-colors"
-                  title="Delete chat"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
+            )
           ))}
           {filteredChats.length === 0 && (
             <div className="text-center text-sm text-muted-foreground mt-10">
