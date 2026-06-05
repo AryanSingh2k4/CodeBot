@@ -52,17 +52,10 @@ export function SettingsModal({
             <h3 className="text-sm font-medium text-muted-foreground mb-3">AI Settings</h3>
             <div className="bg-background border border-border rounded-lg p-4 space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Provider</span>
-                <span className="text-sm font-medium">Groq</span>
-              </div>
-              <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Model</span>
                 <span className="text-sm font-medium bg-primary/10 text-primary px-2 py-1 rounded-md">llama-3.1-8b-instant</span>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Powered by Groq's lightning-fast inference engine.
-            </p>
           </section>
 
           <section>

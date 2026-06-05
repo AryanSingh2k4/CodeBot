@@ -289,7 +289,7 @@ export default function App() {
 
       <main className="flex-1 flex flex-col relative h-full max-w-full">
         {/* Header */}
-        <header className="h-14 border-b border-border flex items-center px-2 md:px-4 justify-between bg-card/90 backdrop-blur-md z-10 shrink-0 sticky top-0">
+        <header className="h-14 border-b border-border flex items-center px-2 md:px-4 justify-between bg-card/90 backdrop-blur-md z-10 shrink-0">
           <div className="flex items-center gap-1 md:gap-3">
             <button
               className="p-2 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-colors"
