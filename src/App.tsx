@@ -398,7 +398,7 @@ export default function App() {
               attachedFiles={attachedFiles}
               onRemoveFile={handleRemoveFile}
             />
-            <div className="text-center text-[10px] md:text-xs text-muted-foreground/60 mb-2 md:mb-4 px-4">
+            <div className="text-center text-[9px] md:text-xs tracking-tight text-muted-foreground/60 mb-2 md:mb-4 px-1 md:px-4">
               AI models can make mistakes. Consider verifying important information.
             </div>
           </div>
