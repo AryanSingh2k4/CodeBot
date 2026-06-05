@@ -31,7 +31,10 @@ export function Sidebar({
   const [editingChatId, setEditingChatId] = React.useState<string | null>(null);
   const [editTitle, setEditTitle] = React.useState('');
 
-  const filteredChats = chats.filter(c => c.title.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredChats = chats.filter(c => {
+    const q = searchQuery.toLowerCase();
+    return c.title.toLowerCase().includes(q) || c.messages.some(m => m.content.toLowerCase().includes(q));
+  });
 
   const groupedChats = {
     'Today': [] as Chat[],

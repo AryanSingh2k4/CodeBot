@@ -15,6 +15,7 @@ export interface Chat {
 
 export interface AppSettings {
   theme: 'dark' | 'light';
+  persona?: string;
 }
 
 export interface FileData {

@@ -35,7 +35,7 @@ export default async function handler(req: Request) {
     if (textBody.length > 1024 * 1024) {
       return new Response(JSON.stringify({ error: 'Payload too large' }), { status: 413 });
     }
-    const { messages } = JSON.parse(textBody);
+    const { messages, model, temperature, max_tokens } = JSON.parse(textBody);
 
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: 'Malformed request' }), { status: 400 });
@@ -58,9 +58,9 @@ export default async function handler(req: Request) {
 
     const completion = await groq.chat.completions.create({
       messages,
-      model: 'llama-3.1-8b-instant',
-      temperature: 0.7,
-      max_tokens: 2048,
+      model: model || 'llama-3.1-8b-instant',
+      temperature: temperature ?? 0.7,
+      max_tokens: max_tokens || 2048,
       stream: true,
     });
 

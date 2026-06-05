@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, ChangeEvent, KeyboardEvent } from 'react';
-import { Send, StopCircle, Paperclip, X } from 'lucide-react';
+import React, { useRef, useEffect, useState, ChangeEvent, KeyboardEvent } from 'react';
+import { Send, StopCircle, Paperclip, X, Mic, MicOff } from 'lucide-react';
 import { FileData } from '../types';
 
 interface ComposerProps {
@@ -26,12 +26,47 @@ export function Composer({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = true;
+        recognitionRef.current.interimResults = true;
+        
+        recognitionRef.current.onresult = (event: any) => {
+          let currentTranscript = '';
+          for (let i = 0; i < event.results.length; i++) {
+            currentTranscript += event.results[i][0].transcript;
+          }
+          setInput(currentTranscript);
+        };
+        
+        recognitionRef.current.onerror = () => setIsListening(false);
+        recognitionRef.current.onend = () => setIsListening(false);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px';
     }
   }, [input]);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) return alert('Voice dictation is not supported in your browser.');
+    if (isListening) {
+      recognitionRef.current.stop();
+    } else {
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -88,15 +123,17 @@ export function Composer({
           // Webkitdirectory is a boolean attribute, we can use a separate button if needed, but let's just allow file multiple for now.
         />
         
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Message CodeBot..."
-          className="flex-1 max-h-[200px] min-h-[24px] bg-transparent resize-none outline-none text-foreground placeholder:text-muted-foreground py-2"
-          rows={1}
-        />
+        <div className="flex-1 relative">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={isListening ? "Listening... Speak now" : "Message CodeBot..."}
+            className="w-full max-h-[200px] min-h-[24px] bg-transparent resize-none outline-none text-foreground placeholder:text-muted-foreground py-2"
+            rows={1}
+          />
+        </div>
         
         {isGenerating ? (
           <button
@@ -107,14 +144,23 @@ export function Composer({
             <StopCircle size={16} />
           </button>
         ) : (
-          <button
-            onClick={onSubmit}
-            disabled={!input.trim() && attachedFiles.length === 0}
-            className="p-2 bg-foreground text-background hover:opacity-80 disabled:opacity-20 disabled:bg-foreground/50 rounded-full transition-all flex items-center justify-center h-8 w-8"
-            title="Send message"
-          >
-            <Send size={16} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={toggleListening}
+              className={`p-2 rounded-full transition-colors flex items-center justify-center h-8 w-8 ${isListening ? 'bg-red-500 text-white' : 'text-foreground/60 hover:text-foreground hover:bg-muted'}`}
+              title={isListening ? "Stop listening" : "Voice dictation"}
+            >
+              {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+            </button>
+            <button
+              onClick={onSubmit}
+              disabled={!input.trim() && attachedFiles.length === 0}
+              className="p-2 bg-foreground text-background hover:opacity-80 disabled:opacity-20 disabled:bg-foreground/50 rounded-full transition-all flex items-center justify-center h-8 w-8"
+              title="Send message"
+            >
+              <Send size={16} />
+            </button>
+          </div>
         )}
       </div>
     </div>

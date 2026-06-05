@@ -6,7 +6,7 @@ import { Sidebar } from './components/Sidebar';
 import { Composer } from './components/Composer';
 import { MarkdownMessage } from './components/MarkdownMessage';
 import { SettingsModal } from './components/SettingsModal';
-import { streamMessage } from './services/ai';
+import { streamMessage, generateChatTitle } from './services/ai';
 import { storage } from './lib/storage';
 import { Chat, Message, AppSettings, FileData } from './types';
 
@@ -32,7 +32,12 @@ Rules:
 * Format your responses cleanly.`;
 
 export default function App() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768; // 768px is the 'md' breakpoint in Tailwind
+    }
+    return false;
+  });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -51,6 +56,7 @@ export default function App() {
   const [attachedFiles, setAttachedFiles] = useState<FileData[]>([]);
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -164,15 +170,16 @@ export default function App() {
     setAttachedFiles(prev => prev.filter(f => f.id !== id));
   };
 
-  const updateChat = async (chatId: string, updates: Partial<Chat>) => {
-    const updatedChats = chats.map(c =>
-      c.id === chatId ? { ...c, ...updates, updatedAt: Date.now() } : c
-    );
-    setChats(updatedChats);
-    const updatedChat = updatedChats.find(c => c.id === chatId);
-    if (updatedChat) {
-      await storage.saveChat(updatedChat);
-    }
+  const updateChat = async (id: string, updates: Partial<Chat>) => {
+    setChats(prev => {
+      const chat = prev.find(c => c.id === id);
+      if (chat) {
+        const updatedChat = { ...chat, ...updates, updatedAt: Date.now() };
+        storage.saveChat(updatedChat).catch(console.error);
+        return prev.map(c => c.id === id ? updatedChat : c);
+      }
+      return prev;
+    });
   };
 
   useEffect(() => {
@@ -197,23 +204,46 @@ export default function App() {
         ...newMessages.map(m => ({ role: m.role, content: m.content }))
       ];
 
+      // Background title generation
+      if (currentChat?.messages.length === 0 && newMessages.length > 0) {
+        const firstUserMsg = newMessages.find(m => m.role === 'user')?.content;
+        if (firstUserMsg) {
+          generateChatTitle(firstUserMsg).then((newTitle) => {
+            updateChat(chatId, { title: newTitle });
+          }).catch(() => {});
+        }
+      }
+
+      abortControllerRef.current = new AbortController();
       let fullText = '';
-      await streamMessage(messagesForModel, (chunkText) => {
-        fullText += chunkText;
-        const updatedMsgs = [...newMessages];
-        updatedMsgs.push({ ...assistantMsg, content: fullText });
-        setChats(prev => prev.map(c => c.id === chatId ? { ...c, messages: updatedMsgs, updatedAt: Date.now() } : c));
-      });
+      
+      try {
+        await streamMessage(messagesForModel, (chunkText) => {
+          fullText += chunkText;
+          const updatedMsgs = [...newMessages];
+          updatedMsgs.push({ ...assistantMsg, content: fullText });
+          setChats(prev => prev.map(c => c.id === chatId ? { ...c, messages: updatedMsgs, updatedAt: Date.now() } : c));
+        }, abortControllerRef.current.signal);
+      } catch (streamErr: any) {
+        if (streamErr.name === 'AbortError') {
+          // Handled via user stop, keep generated text
+        } else {
+          throw streamErr;
+        }
+      }
 
       const finalMsgs = [...newMessages, { ...assistantMsg, content: fullText }];
       await updateChat(chatId, { messages: finalMsgs });
     } catch (err: any) {
-      console.error(err);
-      const updatedMsgs = [...newMessages];
-      updatedMsgs.push({ ...assistantMsg, content: err.message || 'Error: Generation failed.' });
-      await updateChat(chatId, { messages: updatedMsgs });
+      if (err.name !== 'AbortError') {
+        console.error(err);
+        const updatedMsgs = [...newMessages];
+        updatedMsgs.push({ ...assistantMsg, content: err.message || 'Error: Generation failed.' });
+        await updateChat(chatId, { messages: updatedMsgs });
+      }
     } finally {
       setIsGenerating(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -261,6 +291,9 @@ export default function App() {
   };
 
   const handleStop = async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
     setIsGenerating(false);
   };
 
@@ -299,8 +332,9 @@ export default function App() {
               <Menu size={24} className="md:hidden" />
               {isSidebarOpen ? <PanelLeftClose size={24} className="hidden md:block" /> : <PanelLeftOpen size={24} className="hidden md:block" />}
             </button>
-            <span className="font-medium text-foreground ml-1 md:ml-0">{currentChat?.title || "New Chat"}</span>
+            <span className="font-medium text-foreground ml-1 md:ml-0 truncate max-w-[120px] md:max-w-[200px]">{currentChat?.title || "New Chat"}</span>
           </div>
+          
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsSettingsOpen(true)}

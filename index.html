@@ -10,6 +10,22 @@
     <meta name="description" content="CodeBot - A highly capable general knowledge AI assistant" />
     <meta name="theme-color" content="#1e1e1e" />
     <title>CodeBot</title>
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('codebot-settings');
+          var isDark = false;
+          if (saved) {
+            isDark = JSON.parse(saved).theme === 'dark';
+          } else {
+            isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          }
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
