@@ -19,7 +19,7 @@ export interface AppSettings {
   theme: 'dark' | 'light';
   persona?: string;
   thinkingLevel?: 'low' | 'medium' | 'high';
-  model?: 'gpt-oss' | 'llama';
+  model?: 'openai/gpt-oss-120b' | 'llama-3.3-70b-versatile' | 'llama-3.1-8b-instant';
 }
 
 export interface FileData {
@@ -28,4 +28,8 @@ export interface FileData {
   type: string;
   size: number;
   content: string;
+}
+
+export interface RecentFile extends FileData {
+  addedAt: number;
 }

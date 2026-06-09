@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, ChangeEvent, KeyboardEvent } from 'react';
-import { Send, StopCircle, Plus, X, Mic, MicOff, ChevronDown, Check } from 'lucide-react';
+import { Send, StopCircle, Plus, X, Mic, MicOff, ChevronDown, Check, Paperclip, Clock, Brain, Globe, FileCode2, Code2 } from 'lucide-react';
 import { FileData, AppSettings } from '../types';
 
 interface ComposerProps {
@@ -11,6 +11,12 @@ interface ComposerProps {
   onFileUpload: (files: FileList) => void;
   attachedFiles: FileData[];
   onRemoveFile: (id: string) => void;
+  recentFiles: import('../types').RecentFile[];
+  onAttachRecent: (file: import('../types').RecentFile) => void;
+  isWebSearchEnabled: boolean;
+  setIsWebSearchEnabled: (val: boolean) => void;
+  isCodingModeEnabled: boolean;
+  setIsCodingModeEnabled: (val: boolean) => void;
   settings: AppSettings;
   updateSettings: (updates: Partial<AppSettings>) => void;
 }
@@ -24,6 +30,12 @@ export function Composer({
   onFileUpload,
   attachedFiles,
   onRemoveFile,
+  recentFiles,
+  onAttachRecent,
+  isWebSearchEnabled,
+  setIsWebSearchEnabled,
+  isCodingModeEnabled,
+  setIsCodingModeEnabled,
   settings,
   updateSettings
 }: ComposerProps) {
@@ -32,13 +44,19 @@ export function Composer({
   const [isListening, setIsListening] = useState(false);
   const [recognition, setRecognition] = useState<any>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
+  const [showRecentFiles, setShowRecentFiles] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const attachmentMenuRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
+      }
+      if (attachmentMenuRef.current && !attachmentMenuRef.current.contains(event.target as Node)) {
+        setIsAttachmentMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -104,10 +122,47 @@ export function Composer({
 
   return (
     <div className="flex flex-col bg-muted rounded-2xl p-2 px-3 md:px-4 shadow-[0_2px_12px_rgba(0,0,0,0.08)] mx-2 md:mx-4 mb-2 md:mb-5 relative">
-      
-      {attachedFiles.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-2">
-          {attachedFiles.map(file => (
+        
+        {/* Active features pill row */}
+        {(attachedFiles.length > 0 || isWebSearchEnabled || isCodingModeEnabled || settings.thinkingLevel === 'high') && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {settings.thinkingLevel === 'high' && (
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full text-xs font-medium text-primary">
+                <Brain size={12} />
+                <span>Deep Thinking Active</span>
+                <button 
+                  onClick={() => updateSettings({ thinkingLevel: 'low' })}
+                  className="ml-1 p-0.5 hover:bg-primary/20 rounded-full transition-colors"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            )}
+            {isCodingModeEnabled && (
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full text-xs font-medium text-primary">
+                <Code2 size={12} />
+                <span>Coding Mode Active</span>
+                <button 
+                  onClick={() => setIsCodingModeEnabled(false)}
+                  className="ml-1 p-0.5 hover:bg-primary/20 rounded-full transition-colors"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            )}
+            {isWebSearchEnabled && (
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full text-xs font-medium text-primary">
+                <Globe size={12} />
+                <span>Web Search Active</span>
+                <button 
+                  onClick={() => setIsWebSearchEnabled(false)}
+                  className="ml-1 p-0.5 hover:bg-primary/20 rounded-full transition-colors"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            )}
+            {attachedFiles.map(file => (
             <div key={file.id} className="relative group">
               {file.type.startsWith('image/') ? (
                 <div className="relative">
@@ -163,13 +218,121 @@ export function Composer({
       {/* Toolbar actions area */}
       <div className="flex items-center justify-between mt-1 px-1">
         <div className="flex items-center">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="p-1 text-foreground/60 hover:text-foreground hover:bg-background/40 rounded-full transition-colors flex items-center justify-center h-8 w-8"
-            title="Upload files"
-          >
-            <Plus size={18} />
-          </button>
+          <div className="relative" ref={attachmentMenuRef}>
+            <button
+              onClick={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)}
+              className="p-1 text-foreground/60 hover:text-foreground hover:bg-background/40 rounded-full transition-colors flex items-center justify-center h-8 w-8"
+              title="Add attachment or action"
+            >
+              <Plus size={18} className={`transition-transform duration-200 ${isAttachmentMenuOpen ? 'rotate-45' : ''}`} />
+            </button>
+            
+            {isAttachmentMenuOpen && (
+              <div className="absolute bottom-[calc(100%+8px)] left-0 w-60 bg-popover text-popover-foreground rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-border p-2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                <button
+                  onClick={() => {
+                    fileInputRef.current?.click();
+                    setIsAttachmentMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2.5 text-sm rounded-xl flex items-center gap-3 hover:bg-muted text-foreground transition-colors"
+                >
+                  <Paperclip size={18} className="text-muted-foreground" />
+                  <span>Add photos & files</span>
+                </button>
+                
+                <button
+                  onClick={() => setShowRecentFiles(!showRecentFiles)}
+                  className="w-full text-left px-3 py-2.5 text-sm rounded-xl flex items-center justify-between hover:bg-muted text-foreground transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <Clock size={18} className="text-muted-foreground" />
+                    <span>Recent files</span>
+                  </div>
+                  <ChevronDown size={14} className={`text-muted-foreground transition-transform ${showRecentFiles ? '' : '-rotate-90'}`} />
+                </button>
+
+                {showRecentFiles && recentFiles.length > 0 && (
+                  <div className="pl-9 pr-2 py-1 space-y-1 max-h-[150px] overflow-y-auto">
+                    {recentFiles.map(file => (
+                      <button
+                        key={file.id}
+                        onClick={() => {
+                          onAttachRecent(file);
+                          setIsAttachmentMenuOpen(false);
+                          setShowRecentFiles(false);
+                        }}
+                        className="w-full text-left px-2 py-1.5 text-xs rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors truncate"
+                      >
+                        📄 {file.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {showRecentFiles && recentFiles.length === 0 && (
+                  <div className="pl-9 py-2 text-xs text-muted-foreground">No recent files found.</div>
+                )}
+                
+                <div className="h-px bg-border my-1 mx-2"></div>
+                
+                <button
+                  onClick={() => {
+                    const willBeEnabled = settings.thinkingLevel !== 'high';
+                    updateSettings({ thinkingLevel: willBeEnabled ? 'high' : 'low' });
+                    if (willBeEnabled) {
+                      setIsWebSearchEnabled(false);
+                      setIsCodingModeEnabled(false);
+                    }
+                    setIsAttachmentMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2.5 text-sm rounded-xl flex items-center justify-between hover:bg-muted text-foreground transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <Brain size={18} className={settings.thinkingLevel === 'high' ? "text-primary" : "text-muted-foreground"} />
+                    <span>Deep Thinking</span>
+                  </div>
+                  {settings.thinkingLevel === 'high' && <Check size={14} className="text-primary" />}
+                </button>
+                
+                <button
+                  onClick={() => {
+                    const willBeEnabled = !isWebSearchEnabled;
+                    setIsWebSearchEnabled(willBeEnabled);
+                    if (willBeEnabled) {
+                      setIsCodingModeEnabled(false);
+                      updateSettings({ thinkingLevel: 'low' });
+                    }
+                    setIsAttachmentMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2.5 text-sm rounded-xl flex items-center justify-between hover:bg-muted text-foreground transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <Globe size={18} className={isWebSearchEnabled ? "text-primary" : "text-muted-foreground"} />
+                    <span>Web search</span>
+                  </div>
+                  {isWebSearchEnabled && <Check size={14} className="text-primary" />}
+                </button>
+
+                <button
+                  onClick={() => {
+                    const willBeEnabled = !isCodingModeEnabled;
+                    setIsCodingModeEnabled(willBeEnabled);
+                    if (willBeEnabled) {
+                      setIsWebSearchEnabled(false);
+                      updateSettings({ thinkingLevel: 'low' });
+                    }
+                    setIsAttachmentMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2.5 text-sm rounded-xl flex items-center justify-between hover:bg-muted text-foreground transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <Code2 size={18} className={isCodingModeEnabled ? "text-primary" : "text-muted-foreground"} />
+                    <span>Coding Mode</span>
+                  </div>
+                  {isCodingModeEnabled && <Check size={14} className="text-primary" />}
+                </button>
+              </div>
+            )}
+          </div>
           
           <input 
             type="file"
@@ -183,58 +346,78 @@ export function Composer({
         <div className="flex items-center gap-1.5">
           {/* Combined Settings Dropdown */}
           <div className="relative flex items-center" ref={dropdownRef}>
-            <button 
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center gap-1.5 px-2.5 h-8 rounded-lg hover:bg-background/80 transition-colors text-[11px] font-medium text-muted-foreground hover:text-foreground bg-background/30 border border-border/30"
-              title="Model & Reasoning Settings"
-            >
-              <span className="truncate max-w-[120px] font-mono">{settings.model === 'llama' ? 'llama-3.1-8b-instant' : 'gpt-oss-120b'}</span>
-              <span className="capitalize opacity-80">{settings.thinkingLevel || 'medium'}</span>
-              <ChevronDown size={12} className={`transition-transform duration-200 opacity-70 ${isDropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {isDropdownOpen && (
-              <div className="absolute bottom-[calc(100%+8px)] right-0 w-56 bg-popover text-popover-foreground rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-border p-1.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
-                <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Model</div>
-                {(['gpt-oss', 'llama'] as const).map(m => (
-                  <button
-                    key={m}
-                    onClick={() => {
-                      updateSettings({ model: m });
-                      setIsDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-2.5 py-2 text-xs rounded-lg flex items-center justify-between transition-colors ${
-                      (settings.model || 'gpt-oss') === m 
-                        ? 'bg-primary/10 text-primary font-medium' 
-                        : 'hover:bg-muted text-foreground'
-                    }`}
-                  >
-                    <span className="font-mono">{m === 'gpt-oss' ? 'gpt-oss-120b' : 'llama-3.1-8b-instant'}</span>
-                    {(settings.model || 'gpt-oss') === m && <Check size={12} />}
-                  </button>
-                ))}
-
-                <div className="h-px bg-border my-1.5" />
-
-                <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Reasoning Effort</div>
-                {(['low', 'medium', 'high'] as const).map(level => (
-                  <button
-                    key={level}
-                    onClick={() => {
-                      updateSettings({ thinkingLevel: level });
-                      setIsDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-2.5 py-2 text-xs rounded-lg flex items-center justify-between transition-colors ${
-                      (settings.thinkingLevel || 'medium') === level 
-                        ? 'bg-primary/10 text-primary font-medium' 
-                        : 'hover:bg-muted text-foreground'
-                    }`}
-                  >
-                    <span className="capitalize">{level}</span>
-                    {(settings.thinkingLevel || 'medium') === level && <Check size={12} />}
-                  </button>
-                ))}
+            {isCodingModeEnabled ? (
+              <div className="flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-[11px] font-medium bg-primary/10 text-primary border border-primary/20" title="Coding Mode Model">
+                <Code2 size={12} />
+                <span className="truncate max-w-[120px] font-mono">Qwen3-32b</span>
               </div>
+            ) : settings.thinkingLevel === 'high' ? (
+              <div className="flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-[11px] font-medium bg-primary/10 text-primary border border-primary/20" title="Deep Thinking Architecture">
+                <Brain size={12} />
+                <span className="truncate max-w-[120px] font-mono">Multi-Agent Loop</span>
+              </div>
+            ) : (
+              <>
+                <button 
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="flex items-center gap-1.5 px-2.5 h-8 rounded-lg hover:bg-background/80 transition-colors text-[11px] font-medium text-muted-foreground hover:text-foreground bg-background/30 border border-border/30"
+                  title="Model & Reasoning Settings"
+                >
+                  <span className="truncate max-w-[120px] font-mono">
+                    {settings.model === 'llama-3.1-8b-instant' ? 'Llama-3.1-8b' : settings.model === 'llama-3.3-70b-versatile' ? 'Llama-3.3-70b' : 'GPT-oss-120b'}
+                  </span>
+                  <span className="capitalize opacity-80">{settings.thinkingLevel || 'low'}</span>
+                  <ChevronDown size={12} className={`transition-transform duration-200 opacity-70 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isDropdownOpen && (
+                  <div className="absolute bottom-[calc(100%+8px)] right-0 w-56 bg-popover text-popover-foreground rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-border p-1.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                    <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Model</div>
+                    {(['openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant'] as const).map(m => (
+                      <button
+                        key={m}
+                        onClick={() => {
+                          updateSettings({ model: m });
+                          setIsDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-2.5 py-2 text-xs rounded-lg flex items-center justify-between transition-colors ${
+                          (settings.model || 'llama-3.1-8b-instant') === m 
+                            ? 'bg-primary/10 text-primary font-medium' 
+                            : 'hover:bg-muted text-foreground'
+                        }`}
+                      >
+                        <span className="font-mono">
+                          {m === 'openai/gpt-oss-120b' && 'GPT-oss-120b'}
+                          {m === 'llama-3.3-70b-versatile' && 'Llama-3.3-70b'}
+                          {m === 'llama-3.1-8b-instant' && 'Llama-3.1-8b'}
+                        </span>
+                        {(settings.model || 'llama-3.1-8b-instant') === m && <Check size={12} />}
+                      </button>
+                    ))}
+
+                    <div className="h-px bg-border my-1.5" />
+
+                    <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Reasoning Effort</div>
+                    {(['low', 'medium', 'high'] as const).map(level => (
+                      <button
+                        key={level}
+                        onClick={() => {
+                          updateSettings({ thinkingLevel: level });
+                          setIsDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-2.5 py-2 text-xs rounded-lg flex items-center justify-between transition-colors ${
+                          (settings.thinkingLevel || 'low') === level 
+                            ? 'bg-primary/10 text-primary font-medium' 
+                            : 'hover:bg-muted text-foreground'
+                        }`}
+                      >
+                        <span className="capitalize">{level}</span>
+                        {(settings.thinkingLevel || 'low') === level && <Check size={12} />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
 

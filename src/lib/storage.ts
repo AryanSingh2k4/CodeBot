@@ -32,20 +32,34 @@ export const storage = {
     await chatStore.clear();
   },
 
-  async getFiles(): Promise<FileData[]> {
-    const files: FileData[] = [];
-    await fileStore.iterate((value: FileData, key) => {
+  async getFiles(): Promise<import('../types').RecentFile[]> {
+    const files: import('../types').RecentFile[] = [];
+    await fileStore.iterate((value: import('../types').RecentFile, key) => {
       files.push(value);
     });
-    return files;
+    return files.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
   },
 
   async saveFile(file: FileData): Promise<void> {
-    await fileStore.setItem(file.id, file);
+    const recentFile: import('../types').RecentFile = { ...file, addedAt: Date.now() };
+    await fileStore.setItem(file.id, recentFile);
+    
+    // Cleanup old files, keep only top 10
+    const allFiles = await this.getFiles();
+    if (allFiles.length > 10) {
+      const toDelete = allFiles.slice(10);
+      for (const f of toDelete) {
+        await fileStore.removeItem(f.id);
+      }
+    }
   },
 
   async removeFile(id: string): Promise<void> {
     await fileStore.removeItem(id);
+  },
+
+  async clearFiles(): Promise<void> {
+    await fileStore.clear();
   },
 
   async clearFiles(): Promise<void> {

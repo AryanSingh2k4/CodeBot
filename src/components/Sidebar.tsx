@@ -124,12 +124,11 @@ export function Sidebar({
                   <div 
                     key={chat.id}
                     className={cn(
-                      "group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors",
-                      currentChatId === chat.id ? "bg-muted text-foreground" : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                      "group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all border",
+                      currentChatId === chat.id ? "bg-muted text-foreground border-border/60 shadow-sm" : "border-transparent hover:bg-muted/50 text-muted-foreground hover:text-foreground"
                     )}
                     onClick={() => {
                       onSelectChat(chat.id);
-                      if (window.innerWidth < 768) setIsOpen(false);
                     }}
                   >
                     <div className="flex items-center gap-2 overflow-hidden flex-1">
@@ -154,7 +153,7 @@ export function Sidebar({
                     </div>
                     
                     {!editingChatId && (
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className={`flex items-center gap-1 transition-opacity md:opacity-0 md:group-hover:opacity-100 ${currentChatId === chat.id ? 'opacity-100' : 'opacity-0'}`}>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -190,13 +189,9 @@ export function Sidebar({
 
         {/* Sidebar Footer */}
         <div className="p-3 border-t border-border/40 flex flex-col gap-1.5 bg-background/30 shrink-0">
-          <div className="px-2 py-0.5 text-xs text-muted-foreground/80 font-medium">
-            <span>{chats.length} {chats.length === 1 ? 'chat' : 'chats'}</span>
-          </div>
-          
           <button
             onClick={onOpenSettings}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-medium rounded-lg text-muted-foreground border border-transparent hover:text-foreground hover:bg-muted hover:border-border/60 hover:shadow-sm transition-all duration-200"
           >
             <Settings size={16} />
             <span>Settings</span>

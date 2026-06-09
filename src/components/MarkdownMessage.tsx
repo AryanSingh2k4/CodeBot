@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 import { CodeBlock } from './CodeBlock';
 import { cn } from '../lib/utils';
 
@@ -14,6 +15,7 @@ export function MarkdownMessage({ content, className }: MarkdownMessageProps) {
     <div className={cn("prose prose-invert max-w-none break-words", className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw]}
         components={{
           code({ node, inline, className, children, ...props }: any) {
             const match = /language-(\w+)/.exec(className || '');

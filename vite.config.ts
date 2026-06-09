@@ -10,7 +10,49 @@ const apiPlugin = () => ({
   name: 'api-plugin',
   configureServer(server: any) {
     server.middlewares.use((req: any, res: any, next: any) => {
-      if (req.url === '/api/chat' && req.method === 'POST') {
+      if (req.url === '/api/search') {
+        let bodyData = '';
+        req.on('data', (chunk: any) => { bodyData += chunk.toString(); });
+        req.on('end', () => {
+          try {
+            const parsedBody = JSON.parse(bodyData);
+            const envPath = path.resolve(process.cwd(), '.env');
+            let tavilyApiKey = '';
+            if (fs.existsSync(envPath)) {
+              const envContent = fs.readFileSync(envPath, 'utf8');
+              const match = envContent.match(/TAVILY_API_KEY=(.*)/);
+              if (match) tavilyApiKey = match[1].trim();
+            }
+
+            const postData = JSON.stringify({
+              api_key: tavilyApiKey,
+              query: parsedBody.query,
+              search_depth: 'basic',
+              include_answer: false,
+              include_images: false,
+              include_raw_content: false,
+              max_results: 5
+            });
+
+            const proxyReq = https.request('https://api.tavily.com/search', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(postData)
+              }
+            }, (proxyRes) => {
+              res.writeHead(proxyRes.statusCode || 200, { 'Content-Type': 'application/json' });
+              proxyRes.pipe(res);
+            });
+
+            proxyReq.write(postData);
+            proxyReq.end();
+          } catch (e) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: 'Invalid search request' }));
+          }
+        });
+      } else if (req.url === '/api/chat' && req.method === 'POST') {
         const ip = req.socket?.remoteAddress || 'unknown';
         const now = Date.now();
         const limitInfo = rateLimitMap.get(ip) || { count: 0, resetTime: now + 60000 };

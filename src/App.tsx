@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Menu, Info, Loader2, Monitor, Settings, PanelLeftClose, PanelLeftOpen, Copy, Edit2, RotateCw, ArrowDown, Check, ChevronDown, Plus } from 'lucide-react';
+import { Menu, Info, Loader2, Monitor, Settings, PanelLeftClose, PanelLeftOpen, Copy, Edit2, RotateCw, ArrowDown, Check, ChevronDown, Plus, MoreVertical, Trash2 } from 'lucide-react';
 
 import { Sidebar } from './components/Sidebar';
 import { Composer } from './components/Composer';
 import { MarkdownMessage } from './components/MarkdownMessage';
 import { SettingsModal } from './components/SettingsModal';
-import { streamMessage, generateChatTitle } from './services/ai';
+import { streamMessage, generateChatTitle, searchWeb, executeAgenticLoop } from './services/ai';
 import { storage } from './lib/storage';
-import { Chat, Message, AppSettings, FileData } from './types';
+import { Chat, Message, AppSettings, FileData, RecentFile } from './types';
 import * as pdfjsLib from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
@@ -44,21 +44,34 @@ export default function App() {
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState('');
+  const headerMenuRef = useRef<HTMLDivElement>(null);
 
   const [chats, setChats] = useState<Chat[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
 
   const [settings, setSettings] = useState<AppSettings>(() => {
-    const saved = localStorage.getItem('codebot-settings');
-    if (saved) return JSON.parse(saved);
+    storage.getFiles().then(files => {
+      setRecentFiles(files);
+    }).catch(console.error);
+
+    const savedSettings = localStorage.getItem('codebot-settings');
+    if (savedSettings) return JSON.parse(savedSettings);
     return {
-      theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+      theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+      model: 'llama-3.1-8b-instant',
+      thinkingLevel: 'low'
     };
   });
 
   const [input, setInput] = useState('');
   const [attachedFiles, setAttachedFiles] = useState<FileData[]>([]);
-
+  const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
+  const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
+  const [isCodingModeEnabled, setIsCodingModeEnabled] = useState(false);
+  
   const updateSettings = (updates: Partial<AppSettings>) => {
     setSettings(prev => ({ ...prev, ...updates }));
   };
@@ -94,6 +107,13 @@ export default function App() {
 
   useEffect(() => {
     loadChats();
+    const handleHeaderClickOutside = (event: MouseEvent) => {
+      if (headerMenuRef.current && !headerMenuRef.current.contains(event.target as Node)) {
+        setIsHeaderMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleHeaderClickOutside);
+    return () => document.removeEventListener('mousedown', handleHeaderClickOutside);
   }, []);
 
   useEffect(() => {
@@ -124,7 +144,7 @@ export default function App() {
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
-    setChats([newChat, ...chats]);
+    setChats(prev => [newChat, ...prev]);
     setCurrentChatId(newChat.id);
     storage.saveChat(newChat);
   };
@@ -138,9 +158,16 @@ export default function App() {
   const handleDeleteChat = async (id: string) => {
     await storage.deleteChat(id);
     const newChats = chats.filter(c => c.id !== id);
-    setChats(newChats);
-    if (currentChatId === id) {
-      setCurrentChatId(newChats.length > 0 ? newChats[0].id : null);
+    if (newChats.length === 0) {
+      const fallbackChat: Chat = { id: uuidv4(), title: 'New Chat', messages: [], createdAt: Date.now(), updatedAt: Date.now() };
+      await storage.saveChat(fallbackChat);
+      setChats([fallbackChat]);
+      setCurrentChatId(fallbackChat.id);
+    } else {
+      setChats(newChats);
+      if (currentChatId === id) {
+        setCurrentChatId(newChats[0].id);
+      }
     }
   };
 
@@ -170,13 +197,15 @@ export default function App() {
             reader.onerror = reject;
             reader.readAsDataURL(file);
           });
-          newFiles.push({
+          const newFile = {
             id: uuidv4(),
             name: file.name,
             type: file.type,
             size: file.size,
             content: base64
-          });
+          };
+          newFiles.push(newFile);
+          storage.saveFile(newFile).catch(console.error);
         } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
           const arrayBuffer = await file.arrayBuffer();
           const typedarray = new Uint8Array(arrayBuffer);
@@ -190,33 +219,45 @@ export default function App() {
               const pageText = textContent.items.map((item: any) => item.str).join(' ');
               fullText += pageText + '\n\n';
             }
-            newFiles.push({
+            const newFile = {
               id: uuidv4(),
               name: file.name,
               type: 'text/plain', 
               size: file.size,
               content: fullText.trim() || '[Empty PDF]'
-            });
+            };
+            newFiles.push(newFile);
+            storage.saveFile(newFile).catch(console.error);
           } catch (pdfErr: any) {
             console.error('PDF parsing error:', pdfErr);
             alert(`Could not extract text from PDF: ${pdfErr.message}`);
           }
         } else {
           const text = await file.text();
-          newFiles.push({
+          const newFile = {
             id: uuidv4(),
             name: file.name,
             type: file.type,
             size: file.size,
             content: text
-          });
+          };
+          newFiles.push(newFile);
+          storage.saveFile(newFile).catch(console.error);
         }
       } catch (e) {
         console.error(e);
         alert(`Could not read file ${file.name}.`);
       }
     }
+    
+    // Update local state by fetching latest recent files
+    storage.getFiles().then(files => setRecentFiles(files));
+    
     setAttachedFiles(prev => [...prev, ...newFiles]);
+  };
+
+  const handleAttachRecentFile = (file: RecentFile) => {
+    setAttachedFiles(prev => [...prev, file]);
   };
 
   const handleRemoveFile = (id: string) => {
@@ -256,13 +297,36 @@ export default function App() {
     try {
       let temp = 0.7;
       let extraPrompt = "";
+      let targetModel: string = settings.model || 'llama-3.1-8b-instant';
       
+      if (isCodingModeEnabled) {
+        targetModel = 'qwen/qwen3-32b';
+        extraPrompt += "\n\n[SYSTEM DIRECTIVE: CODING MODE]\nYou are an expert senior software engineer. Provide extremely high-quality, bug-free, and optimal code. Do not write unnecessary explanations. Enclose all code in markdown blocks. Think step by step.";
+      }
+
+      if (isWebSearchEnabled) {
+        setIsGenerating(true);
+        const lastUserMsg = newMessages.findLast(m => m.role === 'user')?.content || '';
+        if (lastUserMsg) {
+          const webResults = await searchWeb(lastUserMsg);
+          if (webResults) {
+            extraPrompt += `\n\n${webResults}\n\nUse the above web search results to answer the user's query if relevant.`;
+          }
+        }
+      }
+
       if (settings.thinkingLevel === 'low') {
         temp = 0.2;
-        extraPrompt = "\\n\\nAnswer as concisely and directly as possible. Do not overthink or provide unnecessary explanations. Give a straight answer.";
+        extraPrompt = "\n\nAnswer as concisely and directly as possible. Do not overthink or provide unnecessary explanations. Give a straight answer.";
       } else if (settings.thinkingLevel === 'high') {
         temp = 0.9;
-        extraPrompt = "\\n\\nYou must think deeply and comprehensively about this query. Consider edge cases, alternative perspectives, and potential pitfalls. Provide a highly robust, detailed, and optimal solution.";
+        targetModel = 'openai/gpt-oss-120b';
+        setIsGenerating(true);
+        const lastUserMsg = newMessages.findLast(m => m.role === 'user')?.content || '';
+        if (lastUserMsg) {
+          const reasoningContext = await executeAgenticLoop(lastUserMsg);
+          extraPrompt = `\n\n[SYSTEM DIRECTIVE: DEEP THINKING MODE]\nBefore answering, your sub-agents have deliberated on the problem and produced the following reasoning log. You MUST follow the optimal path chosen in the critique to answer the user perfectly:\n\n${reasoningContext}`;
+        }
       }
 
       const messagesForModel = [
@@ -289,9 +353,13 @@ export default function App() {
 
       // Background title generation
       if (currentChat?.messages.length === 0 && newMessages.length > 0) {
-        const firstUserMsg = newMessages.find(m => m.role === 'user')?.content;
-        if (firstUserMsg) {
-          generateChatTitle(firstUserMsg).then((newTitle) => {
+        const firstUserMsgObj = newMessages.find(m => m.role === 'user');
+        let titlePromptText = firstUserMsgObj?.content || '';
+        if (!titlePromptText && firstUserMsgObj?.attachments && firstUserMsgObj.attachments.length > 0) {
+           titlePromptText = `File: ${firstUserMsgObj.attachments[0].name}\n\n${firstUserMsgObj.attachments[0].content.slice(0, 1000)}`;
+        }
+        if (titlePromptText) {
+          generateChatTitle(titlePromptText).then((newTitle) => {
             updateChat(chatId, { title: newTitle });
           }).catch(() => {});
         }
@@ -301,7 +369,7 @@ export default function App() {
       let fullText = '';
       
       try {
-        await streamMessage(messagesForModel, temp, settings.model || 'gpt-oss', (chunkText) => {
+        await streamMessage(messagesForModel, temp, targetModel, (chunkText) => {
           fullText += chunkText;
           const updatedMsgs = [...newMessages];
           updatedMsgs.push({ ...assistantMsg, content: fullText });
@@ -348,7 +416,15 @@ export default function App() {
     const newMessages = [...currentChat.messages, newUserMsg];
     let title = currentChat.title;
     if (currentChat.messages.length === 0) {
-      title = input.slice(0, 30) + (input.length > 30 ? '...' : '');
+      if (input.trim()) {
+        title = input.slice(0, 30) + (input.length > 30 ? '...' : '');
+      } else if (textFiles.length > 0) {
+        title = textFiles[0].name.slice(0, 30);
+      } else if (imageFiles.length > 0) {
+        title = 'Image Upload';
+      } else {
+        title = 'New Chat';
+      }
     }
 
     await updateChat(currentChat.id, {
@@ -381,9 +457,22 @@ export default function App() {
 
   const handleClearChats = async () => {
     await storage.clearChats();
-    setChats([]);
-    setCurrentChatId(null);
-    handleNewChat();
+    await storage.clearFiles();
+    
+    localStorage.removeItem('codebot-settings');
+    setSettings({
+      theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+      model: 'llama-3.1-8b-instant',
+      thinkingLevel: 'low'
+    });
+    
+    const freshChat: Chat = { id: uuidv4(), title: 'New Chat', messages: [], createdAt: Date.now(), updatedAt: Date.now() };
+    await storage.saveChat(freshChat);
+    setChats([freshChat]);
+    setCurrentChatId(freshChat.id);
+    
+    setRecentFiles([]);
+    setAttachedFiles([]);
     setIsSettingsOpen(false);
   };
 
@@ -406,26 +495,88 @@ export default function App() {
       <main className="flex-1 flex flex-col relative h-full max-w-full">
         {/* Header */}
         <header className="h-14 border-b border-border flex items-center px-2 md:px-4 justify-between bg-card/90 backdrop-blur-md z-10 shrink-0">
-          <div className="flex items-center gap-1 md:gap-3">
+          <div className="flex items-center gap-1 md:gap-3 flex-1 min-w-0">
             <button
-              className="p-2 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+              className="p-2 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-colors shrink-0"
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               title={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
             >
               <Menu size={24} className="md:hidden" />
               {isSidebarOpen ? <PanelLeftClose size={24} className="hidden md:block" /> : <PanelLeftOpen size={24} className="hidden md:block" />}
             </button>
-            <span className="font-medium text-foreground ml-1 md:ml-0 truncate max-w-[120px] md:max-w-[200px]">{currentChat?.title || "New Chat"}</span>
+            {isEditingTitle ? (
+              <input 
+                autoFocus
+                value={editTitleValue}
+                onChange={(e) => setEditTitleValue(e.target.value)}
+                onBlur={() => {
+                  setIsEditingTitle(false);
+                  if (currentChat && editTitleValue.trim()) {
+                    handleRenameChat(currentChat.id, editTitleValue.trim());
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setIsEditingTitle(false);
+                    if (currentChat && editTitleValue.trim()) {
+                      handleRenameChat(currentChat.id, editTitleValue.trim());
+                    }
+                  } else if (e.key === 'Escape') {
+                    setIsEditingTitle(false);
+                  }
+                }}
+                className="bg-transparent border-b border-primary outline-none px-1 py-0.5 text-foreground font-medium text-sm md:text-base w-full max-w-[200px]"
+              />
+            ) : (
+              <span className="font-medium text-foreground ml-1 md:ml-0 truncate max-w-[200px]">{currentChat?.title || "New Chat"}</span>
+            )}
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative shrink-0" ref={headerMenuRef}>
             <button
-              onClick={handleNewChat}
-              className="p-2 -mr-2 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-colors"
-              title="New Chat"
+              onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
+              className="p-2 -mr-2 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+              title="Menu"
             >
-              <Plus size={20} />
+              <MoreVertical size={20} />
             </button>
+
+            {isHeaderMenuOpen && (
+              <div className="absolute top-full right-0 mt-2 w-48 bg-popover text-popover-foreground rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-border py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                <button
+                  onClick={() => {
+                    handleNewChat();
+                    setIsHeaderMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2 transition-colors"
+                >
+                  <Plus size={16} /> New Chat
+                </button>
+                {currentChat && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setIsEditingTitle(true);
+                        setEditTitleValue(currentChat.title);
+                        setIsHeaderMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2 transition-colors"
+                    >
+                      <Edit2 size={16} /> Rename Chat
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleDeleteChat(currentChat.id);
+                        setIsHeaderMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted text-destructive flex items-center gap-2 transition-colors"
+                    >
+                      <Trash2 size={16} /> Delete Chat
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </header>
 
@@ -484,7 +635,7 @@ export default function App() {
                     </div>
                     
                     {/* Action Toolbar */}
-                    <div className={`flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${msg.role === 'user' ? 'pr-3' : ''}`}>
+                    <div className={`flex items-center gap-2 mt-1 ${msg.role === 'user' ? 'pr-3 opacity-0 group-hover:opacity-100 transition-opacity' : ''}`}>
                       {msg.role === 'assistant' && (
                         <>
                           <button onClick={() => handleCopy(msg.id, msg.content)} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors" title="Copy">
@@ -533,6 +684,12 @@ export default function App() {
               onFileUpload={handleFileUpload}
               attachedFiles={attachedFiles}
               onRemoveFile={handleRemoveFile}
+              recentFiles={recentFiles}
+              onAttachRecent={handleAttachRecentFile}
+              isWebSearchEnabled={isWebSearchEnabled}
+              setIsWebSearchEnabled={setIsWebSearchEnabled}
+              isCodingModeEnabled={isCodingModeEnabled}
+              setIsCodingModeEnabled={setIsCodingModeEnabled}
               settings={settings}
               updateSettings={updateSettings}
             />
