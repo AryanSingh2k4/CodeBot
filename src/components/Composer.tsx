@@ -122,16 +122,28 @@ export function Composer({
       )}
       
       {/* Textarea Input area */}
-      <div className="w-full relative px-1">
+      <div className="w-full relative px-1 flex items-center">
         <textarea
           ref={textareaRef}
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={isListening ? "Listening... Speak now" : "Write a message..."}
-          className="w-full max-h-[140px] md:max-h-[200px] min-h-[24px] bg-transparent resize-none outline-none text-foreground placeholder:text-muted-foreground py-1 text-[15px] md:text-base"
+          className={`w-full max-h-[140px] md:max-h-[200px] min-h-[24px] bg-transparent resize-none outline-none text-foreground placeholder:text-muted-foreground py-1 text-[15px] md:text-base ${isListening ? 'pr-28' : ''}`}
           rows={1}
         />
+        
+        {isListening && (
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20 shadow-sm z-10 select-none">
+            <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
+            <span className="text-[9px] text-red-500 font-semibold tracking-wider uppercase">Listening</span>
+            <div className="flex items-center gap-0.5 h-2.5">
+              <span className="w-[1.5px] h-1.5 bg-red-500 rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '0.6s' }} />
+              <span className="w-[1.5px] h-2.5 bg-red-500 rounded-full animate-bounce" style={{ animationDelay: '150ms', animationDuration: '0.6s' }} />
+              <span className="w-[1.5px] h-2 bg-red-500 rounded-full animate-bounce" style={{ animationDelay: '300ms', animationDuration: '0.6s' }} />
+            </div>
+          </div>
+        )}
       </div>
       
       {/* Toolbar actions area */}

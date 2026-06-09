@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Menu, Info, Loader2, Monitor, Settings, PanelLeftClose, PanelLeftOpen, Copy, Edit2, RotateCw, ArrowDown, Check, ChevronDown } from 'lucide-react';
+import { Menu, Info, Loader2, Monitor, Settings, PanelLeftClose, PanelLeftOpen, Copy, Edit2, RotateCw, ArrowDown, Check, ChevronDown, Plus } from 'lucide-react';
 
 import { Sidebar } from './components/Sidebar';
 import { Composer } from './components/Composer';
@@ -66,6 +66,7 @@ export default function App() {
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const isNearBottomRef = useRef(true);
 
   const handleCopy = (id: string, content: string) => {
     navigator.clipboard.writeText(content);
@@ -76,12 +77,15 @@ export default function App() {
   const handleScroll = () => {
     if (scrollContainerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-      setShowScrollButton(scrollHeight - scrollTop - clientHeight > 100);
+      const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+      isNearBottomRef.current = distanceToBottom < 80;
+      setShowScrollButton(distanceToBottom > 150);
     }
   };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    isNearBottomRef.current = true;
   };
 
   useEffect(() => {
@@ -187,7 +191,9 @@ export default function App() {
   };
 
   useEffect(() => {
-    scrollToBottom();
+    if (isNearBottomRef.current) {
+      scrollToBottom();
+    }
   }, [currentChat?.messages]);
   const generateResponse = async (chatId: string, newMessages: Message[]) => {
     setIsGenerating(true);
@@ -293,6 +299,8 @@ export default function App() {
 
     setInput('');
     setAttachedFiles([]);
+    isNearBottomRef.current = true;
+    scrollToBottom();
     await generateResponse(currentChat.id, newMessages);
   };
 
@@ -333,6 +341,7 @@ export default function App() {
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onRenameChat={handleRenameChat}
+        onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
       <main className="flex-1 flex flex-col relative h-full max-w-full">
@@ -350,13 +359,13 @@ export default function App() {
             <span className="font-medium text-foreground ml-1 md:ml-0 truncate max-w-[120px] md:max-w-[200px]">{currentChat?.title || "New Chat"}</span>
           </div>
           
-          <div className="flex items-center gap-2 md:gap-4">
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setIsSettingsOpen(true)}
+              onClick={handleNewChat}
               className="p-2 -mr-2 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-colors"
-              title="Settings"
+              title="New Chat"
             >
-              <Settings size={20} />
+              <Plus size={20} />
             </button>
           </div>
         </header>

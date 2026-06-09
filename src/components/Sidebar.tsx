@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, Plus, Search, Trash2, X, Edit2 } from 'lucide-react';
+import { MessageSquare, Plus, Search, Trash2, X, Edit2, Settings } from 'lucide-react';
 import { Chat } from '../types';
 import { cn } from '../lib/utils';
 
@@ -14,6 +14,7 @@ interface SidebarProps {
   onRenameChat: (id: string, newTitle: string) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  onOpenSettings: () => void;
 }
 
 export function Sidebar({
@@ -26,7 +27,8 @@ export function Sidebar({
   onDeleteChat,
   onRenameChat,
   searchQuery,
-  setSearchQuery
+  setSearchQuery,
+  onOpenSettings
 }: SidebarProps) {
   const [editingChatId, setEditingChatId] = React.useState<string | null>(null);
   const [editTitle, setEditTitle] = React.useState('');
@@ -184,6 +186,21 @@ export function Sidebar({
               No chats found.
             </div>
           )}
+        </div>
+
+        {/* Sidebar Footer */}
+        <div className="p-3 border-t border-border/40 flex flex-col gap-1.5 bg-background/30 shrink-0">
+          <div className="px-2 py-0.5 text-xs text-muted-foreground/80 font-medium">
+            <span>{chats.length} {chats.length === 1 ? 'chat' : 'chats'}</span>
+          </div>
+          
+          <button
+            onClick={onOpenSettings}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
+          >
+            <Settings size={16} />
+            <span>Settings</span>
+          </button>
         </div>
       </div>
     </>
