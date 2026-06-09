@@ -60,9 +60,5 @@ export const storage = {
 
   async clearFiles(): Promise<void> {
     await fileStore.clear();
-  },
-
-  async clearFiles(): Promise<void> {
-    await fileStore.clear();
   }
 };
