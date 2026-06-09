@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, ChangeEvent, KeyboardEvent } from 'react';
-import { Send, StopCircle, Paperclip, X, Mic, MicOff } from 'lucide-react';
-import { FileData } from '../types';
+import { Send, StopCircle, Plus, X, Mic, MicOff, ChevronDown, Check } from 'lucide-react';
+import { FileData, AppSettings } from '../types';
 
 interface ComposerProps {
   input: string;
@@ -11,6 +11,8 @@ interface ComposerProps {
   onFileUpload: (files: FileList) => void;
   attachedFiles: FileData[];
   onRemoveFile: (id: string) => void;
+  settings: AppSettings;
+  updateSettings: (updates: Partial<AppSettings>) => void;
 }
 
 export function Composer({
@@ -21,13 +23,27 @@ export function Composer({
   onStop,
   onFileUpload,
   attachedFiles,
-  onRemoveFile
+  onRemoveFile,
+  settings,
+  updateSettings
 }: ComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const [isListening, setIsListening] = useState(false);
+  const [recognition, setRecognition] = useState<any>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -87,81 +103,124 @@ export function Composer({
   };
 
   return (
-    <div className="flex flex-col bg-muted rounded-3xl p-2 px-3 md:px-4 shadow-[0_0_15px_rgba(0,0,0,0.1)] mx-2 md:mx-4 mb-2 md:mb-6 relative">
+    <div className="flex flex-col bg-muted rounded-2xl p-2 px-3 md:px-4 shadow-[0_2px_12px_rgba(0,0,0,0.08)] mx-2 md:mx-4 mb-2 md:mb-5 relative">
+      
       {attachedFiles.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-3">
+        <div className="flex flex-wrap gap-2 mb-2">
           {attachedFiles.map(file => (
-            <div key={file.id} className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-lg text-sm">
+            <div key={file.id} className="flex items-center gap-2 bg-muted px-2.5 py-1 rounded-lg text-xs">
               <span className="truncate max-w-[150px]">{file.name}</span>
               <button 
                 onClick={() => onRemoveFile(file.id)}
                 className="text-muted-foreground hover:text-foreground"
               >
-                <X size={14} />
+                <X size={12} />
               </button>
             </div>
           ))}
         </div>
       )}
       
-      <div className="flex items-center gap-2 py-1">
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="p-2 text-foreground/60 hover:text-foreground rounded-full transition-colors"
-          title="Upload files"
-        >
-          <Paperclip size={20} />
-        </button>
-        
-        <input 
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          className="hidden"
-          multiple
-          // support directory upload optionally by adding webkitdirectory?
-          // Webkitdirectory is a boolean attribute, we can use a separate button if needed, but let's just allow file multiple for now.
+      {/* Textarea Input area */}
+      <div className="w-full relative px-1">
+        <textarea
+          ref={textareaRef}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={isListening ? "Listening... Speak now" : "Write a message..."}
+          className="w-full max-h-[140px] md:max-h-[200px] min-h-[24px] bg-transparent resize-none outline-none text-foreground placeholder:text-muted-foreground py-1 text-[15px] md:text-base"
+          rows={1}
         />
-        
-        <div className="flex-1 relative">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={isListening ? "Listening... Speak now" : "Message CodeBot..."}
-            className="w-full max-h-[200px] min-h-[24px] bg-transparent resize-none outline-none text-foreground placeholder:text-muted-foreground py-2"
-            rows={1}
+      </div>
+      
+      {/* Toolbar actions area */}
+      <div className="flex items-center justify-between mt-1 px-1">
+        <div className="flex items-center">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="p-1 text-foreground/60 hover:text-foreground hover:bg-background/40 rounded-full transition-colors flex items-center justify-center h-8 w-8"
+            title="Upload files"
+          >
+            <Plus size={18} />
+          </button>
+          
+          <input 
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+            multiple
           />
         </div>
         
-        {isGenerating ? (
-          <button
-            onClick={onStop}
-            className="p-2 bg-foreground text-background hover:opacity-80 rounded-full transition-colors flex items-center justify-center h-8 w-8"
-            title="Stop generation"
-          >
-            <StopCircle size={16} />
-          </button>
-        ) : (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={toggleListening}
-              className={`p-2 rounded-full transition-colors flex items-center justify-center h-8 w-8 ${isListening ? 'bg-red-500 text-white' : 'text-foreground/60 hover:text-foreground hover:bg-muted'}`}
-              title={isListening ? "Stop listening" : "Voice dictation"}
+        <div className="flex items-center gap-1.5">
+          {/* Thinking Level Dropdown */}
+          <div className="relative flex items-center" ref={dropdownRef}>
+            <button 
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="flex items-center gap-0.5 px-2 h-7 rounded-lg hover:bg-background/80 transition-colors text-[11px] font-medium text-muted-foreground hover:text-foreground bg-background/30 border border-border/30"
+              title="Reasoning Effort"
             >
-              {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+              <span className="capitalize">{settings.thinkingLevel || 'medium'}</span>
+              <ChevronDown size={11} className={`transition-transform duration-200 opacity-70 ml-0.5 ${isDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
+
+            {isDropdownOpen && (
+              <div className="absolute bottom-[calc(100%+8px)] right-0 w-28 bg-popover text-popover-foreground rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.15)] border border-border p-1 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                {(['low', 'medium', 'high'] as const).map(level => (
+                  <button
+                    key={level}
+                    onClick={() => {
+                      updateSettings({ thinkingLevel: level });
+                      setIsDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-2.5 py-1.5 text-xs rounded-lg flex items-center justify-between transition-colors ${
+                      (settings.thinkingLevel || 'medium') === level 
+                        ? 'bg-primary/10 text-primary font-medium' 
+                        : 'hover:bg-muted text-foreground'
+                    }`}
+                  >
+                    <span className="capitalize">{level}</span>
+                    {(settings.thinkingLevel || 'medium') === level && <Check size={11} />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={toggleListening}
+            className={`p-1 rounded-full transition-colors flex items-center justify-center h-8 w-8 ${
+              isListening 
+                ? 'bg-red-500 text-white' 
+                : 'text-foreground/60 hover:text-foreground hover:bg-background/40'
+            }`}
+            title={isListening ? "Stop listening" : "Voice dictation"}
+          >
+            {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+          </button>
+
+          {/* Send / Stop Buttons */}
+          {isGenerating ? (
+            <button
+              onClick={onStop}
+              className="p-1 bg-foreground text-background hover:opacity-80 rounded-full transition-colors flex items-center justify-center h-8 w-8"
+              title="Stop generation"
+            >
+              <StopCircle size={16} />
+            </button>
+          ) : (
             <button
               onClick={onSubmit}
               disabled={!input.trim() && attachedFiles.length === 0}
-              className="p-2 bg-foreground text-background hover:opacity-80 disabled:opacity-20 disabled:bg-foreground/50 rounded-full transition-all flex items-center justify-center h-8 w-8"
+              className="p-1 bg-foreground text-background hover:opacity-80 disabled:opacity-20 disabled:bg-foreground/50 rounded-full transition-all flex items-center justify-center h-8 w-8"
               title="Send message"
             >
               <Send size={16} />
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

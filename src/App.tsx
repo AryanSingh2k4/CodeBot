@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Menu, Info, Loader2, Monitor, Settings, PanelLeftClose, PanelLeftOpen, Copy, Edit2, RotateCw, ArrowDown, Check } from 'lucide-react';
+import { Menu, Info, Loader2, Monitor, Settings, PanelLeftClose, PanelLeftOpen, Copy, Edit2, RotateCw, ArrowDown, Check, ChevronDown } from 'lucide-react';
 
 import { Sidebar } from './components/Sidebar';
 import { Composer } from './components/Composer';
@@ -54,6 +54,10 @@ export default function App() {
 
   const [input, setInput] = useState('');
   const [attachedFiles, setAttachedFiles] = useState<FileData[]>([]);
+
+  const updateSettings = (updates: Partial<AppSettings>) => {
+    setSettings(prev => ({ ...prev, ...updates }));
+  };
 
   const [isGenerating, setIsGenerating] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -199,8 +203,19 @@ export default function App() {
     await updateChat(chatId, { messages: messagesWithAssistant });
 
     try {
+      let temp = 0.7;
+      let extraPrompt = "";
+      
+      if (settings.thinkingLevel === 'low') {
+        temp = 0.2;
+        extraPrompt = "\\n\\nAnswer as concisely and directly as possible. Do not overthink or provide unnecessary explanations. Give a straight answer.";
+      } else if (settings.thinkingLevel === 'high') {
+        temp = 0.9;
+        extraPrompt = "\\n\\nYou must think deeply and comprehensively about this query. Consider edge cases, alternative perspectives, and potential pitfalls. Provide a highly robust, detailed, and optimal solution.";
+      }
+
       const messagesForModel = [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: SYSTEM_PROMPT + extraPrompt },
         ...newMessages.map(m => ({ role: m.role, content: m.content }))
       ];
 
@@ -218,7 +233,7 @@ export default function App() {
       let fullText = '';
       
       try {
-        await streamMessage(messagesForModel, (chunkText) => {
+        await streamMessage(messagesForModel, temp, (chunkText) => {
           fullText += chunkText;
           const updatedMsgs = [...newMessages];
           updatedMsgs.push({ ...assistantMsg, content: fullText });
@@ -335,7 +350,7 @@ export default function App() {
             <span className="font-medium text-foreground ml-1 md:ml-0 truncate max-w-[120px] md:max-w-[200px]">{currentChat?.title || "New Chat"}</span>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <button
               onClick={() => setIsSettingsOpen(true)}
               className="p-2 -mr-2 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-colors"
@@ -431,6 +446,8 @@ export default function App() {
               onFileUpload={handleFileUpload}
               attachedFiles={attachedFiles}
               onRemoveFile={handleRemoveFile}
+              settings={settings}
+              updateSettings={updateSettings}
             />
             <div className="text-center text-[9px] md:text-xs tracking-tight text-muted-foreground/60 mb-2 md:mb-4 px-1 md:px-4">
               AI models can make mistakes. Consider verifying important information.
