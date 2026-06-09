@@ -188,7 +188,7 @@ export function Composer({
               className="flex items-center gap-1.5 px-2.5 h-8 rounded-lg hover:bg-background/80 transition-colors text-[11px] font-medium text-muted-foreground hover:text-foreground bg-background/30 border border-border/30"
               title="Model & Reasoning Settings"
             >
-              <span className="truncate max-w-[120px] font-mono">{settings.model === 'llama' ? 'llama-3.1-8b-instant' : settings.model === 'gemma' ? 'gemma-4-31b-it' : 'gpt-oss-120b'}</span>
+              <span className="truncate max-w-[120px] font-mono">{settings.model === 'llama' ? 'llama-3.1-8b-instant' : 'gpt-oss-120b'}</span>
               <span className="capitalize opacity-80">{settings.thinkingLevel || 'medium'}</span>
               <ChevronDown size={12} className={`transition-transform duration-200 opacity-70 ${isDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -196,7 +196,7 @@ export function Composer({
             {isDropdownOpen && (
               <div className="absolute bottom-[calc(100%+8px)] right-0 w-56 bg-popover text-popover-foreground rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-border p-1.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
                 <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Model</div>
-                {(['gpt-oss', 'llama', 'gemma'] as const).map(m => (
+                {(['gpt-oss', 'llama'] as const).map(m => (
                   <button
                     key={m}
                     onClick={() => {
@@ -209,7 +209,7 @@ export function Composer({
                         : 'hover:bg-muted text-foreground'
                     }`}
                   >
-                    <span className="font-mono">{m === 'gpt-oss' ? 'gpt-oss-120b' : m === 'llama' ? 'llama-3.1-8b-instant' : 'gemma-4-31b-it'}</span>
+                    <span className="font-mono">{m === 'gpt-oss' ? 'gpt-oss-120b' : 'llama-3.1-8b-instant'}</span>
                     {(settings.model || 'gpt-oss') === m && <Check size={12} />}
                   </button>
                 ))}

@@ -68,13 +68,6 @@ export function SettingsModal({
                     <span className="font-mono text-sm">llama-3.1-8b-instant</span>
                     {settings.model === 'llama' && <div className="w-2 h-2 rounded-full bg-primary" />}
                   </button>
-                  <button 
-                    onClick={() => onUpdateSettings({ model: 'gemma' })}
-                    className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${settings.model === 'gemma' ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted'}`}
-                  >
-                    <span className="font-mono text-sm">gemma-4-31b-it</span>
-                    {settings.model === 'gemma' && <div className="w-2 h-2 rounded-full bg-primary" />}
-                  </button>
                 </div>
               </div>
             </div>

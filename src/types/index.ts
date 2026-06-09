@@ -18,7 +18,7 @@ export interface AppSettings {
   theme: 'dark' | 'light';
   persona?: string;
   thinkingLevel?: 'low' | 'medium' | 'high';
-  model?: 'gpt-oss' | 'llama' | 'gemma';
+  model?: 'gpt-oss' | 'llama';
 }
 
 export interface FileData {
