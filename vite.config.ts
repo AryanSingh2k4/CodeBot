@@ -71,9 +71,9 @@ const apiPlugin = () => ({
                  return res.end(JSON.stringify({ error: 'Invalid message content' }));
               }
             }
-            if (totalChars > 8000) {
+            if (totalChars > 500000) {
               res.statusCode = 400;
-              return res.end(JSON.stringify({ error: 'Prompt exceeds maximum allowed size (8000 chars)' }));
+              return res.end(JSON.stringify({ error: 'Prompt exceeds maximum allowed size (500000 chars)' }));
             }
 
             let targetModel = parsedBody.model;

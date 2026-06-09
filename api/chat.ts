@@ -56,8 +56,8 @@ export default async function handler(req: Request) {
         return new Response(JSON.stringify({ error: 'Invalid message content' }), { status: 400 });
       }
     }
-    if (totalChars > 8000) {
-      return new Response(JSON.stringify({ error: 'Prompt exceeds maximum allowed size (8000 chars)' }), { status: 400 });
+    if (totalChars > 500000) {
+      return new Response(JSON.stringify({ error: 'Prompt exceeds maximum allowed size (500000 chars)' }), { status: 400 });
     }
 
     const groqApiKey = process.env.GROQ_API_KEY;

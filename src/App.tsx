@@ -9,6 +9,10 @@ import { SettingsModal } from './components/SettingsModal';
 import { streamMessage, generateChatTitle } from './services/ai';
 import { storage } from './lib/storage';
 import { Chat, Message, AppSettings, FileData } from './types';
+import * as pdfjsLib from 'pdfjs-dist';
+import workerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
 const Logo = ({ className = "", size = 24 }: { className?: string, size?: number }) => (
   <svg
@@ -146,11 +150,11 @@ export default function App() {
 
   const handleFileUpload = async (files: FileList) => {
     const newFiles: FileData[] = [];
-    const allowedExts = ['.js', '.ts', '.tsx', '.jsx', '.py', '.java', '.cpp', '.c', '.go', '.rs', '.json', '.yaml', '.yml', '.md', '.txt', '.png', '.jpg', '.jpeg', '.webp', '.gif'];
+    const allowedExts = ['.js', '.ts', '.tsx', '.jsx', '.py', '.java', '.cpp', '.c', '.go', '.rs', '.json', '.yaml', '.yml', '.md', '.txt', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.pdf'];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (file.size > 2 * 1024 * 1024) {
-        alert(`File ${file.name} is too large (max 2MB)`);
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`File ${file.name} is too large (max 10MB)`);
         continue;
       }
       const ext = file.name.includes('.') ? '.' + file.name.split('.').pop()?.toLowerCase() : '';
@@ -173,6 +177,30 @@ export default function App() {
             size: file.size,
             content: base64
           });
+        } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+          const arrayBuffer = await file.arrayBuffer();
+          const typedarray = new Uint8Array(arrayBuffer);
+          
+          try {
+            const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
+            let fullText = '';
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+              const page = await pdf.getPage(pageNum);
+              const textContent = await page.getTextContent();
+              const pageText = textContent.items.map((item: any) => item.str).join(' ');
+              fullText += pageText + '\n\n';
+            }
+            newFiles.push({
+              id: uuidv4(),
+              name: file.name,
+              type: 'text/plain', 
+              size: file.size,
+              content: fullText.trim() || '[Empty PDF]'
+            });
+          } catch (pdfErr: any) {
+            console.error('PDF parsing error:', pdfErr);
+            alert(`Could not extract text from PDF: ${pdfErr.message}`);
+          }
         } else {
           const text = await file.text();
           newFiles.push({
@@ -184,6 +212,7 @@ export default function App() {
           });
         }
       } catch (e) {
+        console.error(e);
         alert(`Could not read file ${file.name}.`);
       }
     }
@@ -239,16 +268,22 @@ export default function App() {
       const messagesForModel = [
         { role: 'system', content: SYSTEM_PROMPT + extraPrompt },
         ...newMessages.map(m => {
+          let finalContent = m.content;
+          if (m.attachments && m.attachments.length > 0) {
+            const filesContext = m.attachments.map(f => `File: ${f.name}\n\`\`\`\n${f.content}\n\`\`\``).join('\n\n');
+            finalContent = `${filesContext}\n\n${m.content}`;
+          }
+
           if (m.images && m.images.length > 0) {
              return {
                role: m.role,
                content: [
-                 { type: 'text', text: m.content },
+                 { type: 'text', text: finalContent },
                  ...m.images.map(img => ({ type: 'image_url', image_url: { url: img } }))
                ]
              };
           }
-          return { role: m.role, content: m.content };
+          return { role: m.role, content: finalContent };
         })
       ];
 
@@ -301,20 +336,13 @@ export default function App() {
     const imageFiles = attachedFiles.filter(f => f.type.startsWith('image/')).map(f => f.content);
     const textFiles = attachedFiles.filter(f => !f.type.startsWith('image/'));
 
-    let userContent = input;
-    if (textFiles.length > 0) {
-      const filesContext = textFiles.map(f =>
-        `File: ${f.name}\n\`\`\`\n${f.content}\n\`\`\``
-      ).join('\n\n');
-      userContent = `${filesContext}\n\n${input}`;
-    }
-
     const newUserMsg: Message = {
       id: uuidv4(),
       role: 'user',
-      content: userContent,
+      content: input,
       timestamp: Date.now(),
-      ...(imageFiles.length > 0 && { images: imageFiles })
+      ...(imageFiles.length > 0 && { images: imageFiles }),
+      ...(textFiles.length > 0 && { attachments: textFiles.map(f => ({ name: f.name, content: f.content })) })
     };
 
     const newMessages = [...currentChat.messages, newUserMsg];
@@ -438,6 +466,16 @@ export default function App() {
                             <div className="flex flex-wrap gap-2 mt-3">
                               {msg.images.map((img, idx) => (
                                 <img key={idx} src={img} alt="Attached" className="max-w-[200px] max-h-[200px] rounded-lg object-contain bg-background/50 border border-border/50" />
+                              ))}
+                            </div>
+                          )}
+                          {msg.attachments && msg.attachments.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {msg.attachments.map((file, idx) => (
+                                <div key={idx} className="flex items-center gap-1.5 px-3 py-1.5 bg-background/50 border border-border/50 rounded-lg text-xs font-mono text-muted-foreground">
+                                  <span className="w-4 h-4 flex items-center justify-center shrink-0">📄</span>
+                                  <span className="truncate max-w-[150px]">{file.name}</span>
+                                </div>
                               ))}
                             </div>
                           )}
