@@ -108,14 +108,28 @@ export function Composer({
       {attachedFiles.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2">
           {attachedFiles.map(file => (
-            <div key={file.id} className="flex items-center gap-2 bg-muted px-2.5 py-1 rounded-lg text-xs">
-              <span className="truncate max-w-[150px]">{file.name}</span>
-              <button 
-                onClick={() => onRemoveFile(file.id)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X size={12} />
-              </button>
+            <div key={file.id} className="relative group">
+              {file.type.startsWith('image/') ? (
+                <div className="relative">
+                  <img src={file.content} alt={file.name} className="h-14 w-14 object-cover rounded-lg border border-border" />
+                  <button 
+                    onClick={() => onRemoveFile(file.id)}
+                    className="absolute -top-1.5 -right-1.5 bg-foreground text-background rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-muted px-2.5 py-1 rounded-lg text-xs border border-border/50">
+                  <span className="truncate max-w-[150px]">{file.name}</span>
+                  <button 
+                    onClick={() => onRemoveFile(file.id)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -174,7 +188,7 @@ export function Composer({
               className="flex items-center gap-1.5 px-2.5 h-8 rounded-lg hover:bg-background/80 transition-colors text-[11px] font-medium text-muted-foreground hover:text-foreground bg-background/30 border border-border/30"
               title="Model & Reasoning Settings"
             >
-              <span className="truncate max-w-[120px] font-mono">{settings.model === 'llama' ? 'llama-3.1-8b-instant' : 'gpt-oss-120b'}</span>
+              <span className="truncate max-w-[120px] font-mono">{settings.model === 'llama' ? 'llama-3.1-8b-instant' : settings.model === 'gemma' ? 'gemma-4-31b-it' : 'gpt-oss-120b'}</span>
               <span className="capitalize opacity-80">{settings.thinkingLevel || 'medium'}</span>
               <ChevronDown size={12} className={`transition-transform duration-200 opacity-70 ${isDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -182,7 +196,7 @@ export function Composer({
             {isDropdownOpen && (
               <div className="absolute bottom-[calc(100%+8px)] right-0 w-56 bg-popover text-popover-foreground rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-border p-1.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
                 <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Model</div>
-                {(['gpt-oss', 'llama'] as const).map(m => (
+                {(['gpt-oss', 'llama', 'gemma'] as const).map(m => (
                   <button
                     key={m}
                     onClick={() => {
@@ -195,7 +209,7 @@ export function Composer({
                         : 'hover:bg-muted text-foreground'
                     }`}
                   >
-                    <span className="font-mono">{m === 'gpt-oss' ? 'gpt-oss-120b' : 'llama-3.1-8b-instant'}</span>
+                    <span className="font-mono">{m === 'gpt-oss' ? 'gpt-oss-120b' : m === 'llama' ? 'llama-3.1-8b-instant' : 'gemma-4-31b-it'}</span>
                     {(settings.model || 'gpt-oss') === m && <Check size={12} />}
                   </button>
                 ))}

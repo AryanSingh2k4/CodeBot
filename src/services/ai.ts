@@ -1,4 +1,4 @@
-export async function streamMessage(messages: { role: string, content: string }[], temperature: number, model: string, onChunk: (text: string) => void, signal?: AbortSignal) {
+export async function streamMessage(messages: { role: string, content: string | any[] }[], temperature: number, model: string, onChunk: (text: string) => void, signal?: AbortSignal) {
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -10,9 +10,18 @@ export async function streamMessage(messages: { role: string, content: string }[
     });
 
     if (!response.ok) {
-      if (response.status === 401 || response.status === 403) throw new Error('Invalid API Key: AI service unavailable.');
-      if (response.status === 429) throw new Error('Rate Limit: AI service is busy. Please try again shortly.');
-      throw new Error('Connection failed. Please check your internet connection.');
+      let errorMsg = 'Connection failed. Please check your internet connection.';
+      try {
+        const errData = await response.json();
+        if (errData && errData.error) {
+          errorMsg = typeof errData.error === 'string' ? errData.error : (errData.error.message || JSON.stringify(errData.error));
+        }
+      } catch (e) {}
+      
+      if (response.status === 413) throw new Error(errorMsg || 'Payload too large. Please upload a smaller image.');
+      if (response.status === 401 || response.status === 403) throw new Error(errorMsg || 'Invalid API Key: AI service unavailable.');
+      if (response.status === 429) throw new Error(errorMsg || 'Rate Limit: AI service is busy. Please try again shortly.');
+      throw new Error(errorMsg);
     }
 
     if (!response.body) throw new Error('No response body');
@@ -34,7 +43,8 @@ export async function streamMessage(messages: { role: string, content: string }[
             try {
               const data = JSON.parse(line.slice(6));
               if (data.error) {
-                throw new Error(data.error);
+                const errMsg = typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error));
+                throw new Error(errMsg);
               }
               const content = data.choices?.[0]?.delta?.content;
               if (content) {

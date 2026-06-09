@@ -32,8 +32,8 @@ export default async function handler(req: Request) {
 
   try {
     const textBody = await req.text();
-    if (textBody.length > 1024 * 1024) {
-      return new Response(JSON.stringify({ error: 'Payload too large' }), { status: 413 });
+    if (textBody.length > 10 * 1024 * 1024) {
+      return new Response(JSON.stringify({ error: 'Payload too large. Please upload a smaller image.' }), { status: 413 });
     }
     const { messages, model, temperature, max_tokens } = JSON.parse(textBody);
 
@@ -45,10 +45,17 @@ export default async function handler(req: Request) {
     }
     let totalChars = 0;
     for (const msg of messages) {
-      if (typeof msg.content !== 'string') {
-          return new Response(JSON.stringify({ error: 'Invalid message content' }), { status: 400 });
+      if (typeof msg.content === 'string') {
+        totalChars += msg.content.length;
+      } else if (Array.isArray(msg.content)) {
+        for (const part of msg.content) {
+          if (part.type === 'text' && typeof part.text === 'string') {
+            totalChars += part.text.length;
+          }
+        }
+      } else {
+        return new Response(JSON.stringify({ error: 'Invalid message content' }), { status: 400 });
       }
-      totalChars += msg.content.length;
     }
     if (totalChars > 8000) {
       return new Response(JSON.stringify({ error: 'Prompt exceeds maximum allowed size (8000 chars)' }), { status: 400 });
@@ -62,9 +69,28 @@ export default async function handler(req: Request) {
       targetModel = 'openai/gpt-oss-120b:free';
     } else if (targetModel === 'llama') {
       targetModel = 'llama-3.1-8b-instant';
+    } else if (targetModel === 'gemma') {
+      targetModel = 'google/gemma-4-31b-it:free';
     }
 
-    const useOpenRouter = targetModel.includes('openai/') || targetModel.includes('openrouter/') || (!groqApiKey && openRouterApiKey);
+    let hasImage = false;
+    for (const msg of messages) {
+      if (Array.isArray(msg.content)) {
+        for (const part of msg.content) {
+          if (part.type === 'image_url') hasImage = true;
+        }
+      }
+    }
+
+    if (hasImage) {
+       if (targetModel === 'openai/gpt-oss-120b:free') {
+         targetModel = groqApiKey ? 'llama-3.2-11b-vision-preview' : 'google/gemma-4-26b-a4b-it:free';
+       } else if (targetModel === 'llama-3.1-8b-instant') {
+         targetModel = 'llama-3.2-11b-vision-preview';
+       }
+    }
+
+    const useOpenRouter = targetModel.includes('openai/') || targetModel.includes('openrouter/') || targetModel.includes('google/') || (!groqApiKey && openRouterApiKey);
 
     if (useOpenRouter) {
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {

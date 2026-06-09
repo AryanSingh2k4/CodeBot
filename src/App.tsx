@@ -146,7 +146,7 @@ export default function App() {
 
   const handleFileUpload = async (files: FileList) => {
     const newFiles: FileData[] = [];
-    const allowedExts = ['.js', '.ts', '.tsx', '.jsx', '.py', '.java', '.cpp', '.c', '.go', '.rs', '.json', '.yaml', '.yml', '.md', '.txt'];
+    const allowedExts = ['.js', '.ts', '.tsx', '.jsx', '.py', '.java', '.cpp', '.c', '.go', '.rs', '.json', '.yaml', '.yml', '.md', '.txt', '.png', '.jpg', '.jpeg', '.webp', '.gif'];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       if (file.size > 2 * 1024 * 1024) {
@@ -159,16 +159,32 @@ export default function App() {
         continue;
       }
       try {
-        const text = await file.text();
-        newFiles.push({
-          id: uuidv4(),
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          content: text
-        });
+        if (file.type.startsWith('image/')) {
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          newFiles.push({
+            id: uuidv4(),
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            content: base64
+          });
+        } else {
+          const text = await file.text();
+          newFiles.push({
+            id: uuidv4(),
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            content: text
+          });
+        }
       } catch (e) {
-        alert(`Could not read file ${file.name} as text.`);
+        alert(`Could not read file ${file.name}.`);
       }
     }
     setAttachedFiles(prev => [...prev, ...newFiles]);
@@ -222,7 +238,18 @@ export default function App() {
 
       const messagesForModel = [
         { role: 'system', content: SYSTEM_PROMPT + extraPrompt },
-        ...newMessages.map(m => ({ role: m.role, content: m.content }))
+        ...newMessages.map(m => {
+          if (m.images && m.images.length > 0) {
+             return {
+               role: m.role,
+               content: [
+                 { type: 'text', text: m.content },
+                 ...m.images.map(img => ({ type: 'image_url', image_url: { url: img } }))
+               ]
+             };
+          }
+          return { role: m.role, content: m.content };
+        })
       ];
 
       // Background title generation
@@ -271,9 +298,12 @@ export default function App() {
   const handleSubmit = async () => {
     if ((!input.trim() && attachedFiles.length === 0) || !currentChat) return;
 
+    const imageFiles = attachedFiles.filter(f => f.type.startsWith('image/')).map(f => f.content);
+    const textFiles = attachedFiles.filter(f => !f.type.startsWith('image/'));
+
     let userContent = input;
-    if (attachedFiles.length > 0) {
-      const filesContext = attachedFiles.map(f =>
+    if (textFiles.length > 0) {
+      const filesContext = textFiles.map(f =>
         `File: ${f.name}\n\`\`\`\n${f.content}\n\`\`\``
       ).join('\n\n');
       userContent = `${filesContext}\n\n${input}`;
@@ -283,7 +313,8 @@ export default function App() {
       id: uuidv4(),
       role: 'user',
       content: userContent,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      ...(imageFiles.length > 0 && { images: imageFiles })
     };
 
     const newMessages = [...currentChat.messages, newUserMsg];
@@ -401,7 +432,16 @@ export default function App() {
                           <span className="text-sm">Thinking...</span>
                         </div>
                       ) : (
-                        <MarkdownMessage content={msg.content} />
+                        <>
+                          <MarkdownMessage content={msg.content} />
+                          {msg.images && msg.images.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {msg.images.map((img, idx) => (
+                                <img key={idx} src={img} alt="Attached" className="max-w-[200px] max-h-[200px] rounded-lg object-contain bg-background/50 border border-border/50" />
+                              ))}
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                     
