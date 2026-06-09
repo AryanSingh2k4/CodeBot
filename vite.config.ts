@@ -69,36 +69,85 @@ const apiPlugin = () => ({
               return res.end(JSON.stringify({ error: 'Prompt exceeds maximum allowed size (8000 chars)' }));
             }
 
-            
-            const groqReq = https.request('https://api.groq.com/openai/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${groqApiKey}`,
-                'Content-Type': 'application/json'
-              }
-            }, (groqRes) => {
-              res.writeHead(groqRes.statusCode || 200, {
-                'Content-Type': 'text/event-stream',
-                'Cache-Control': 'no-cache',
-                'Connection': 'keep-alive'
-              });
-              groqRes.pipe(res);
-            });
-            
-            groqReq.on('error', () => {
-              res.statusCode = 500;
-              res.end(JSON.stringify({ error: 'Internal API Error' }));
-            });
-            
-            groqReq.write(JSON.stringify({
-              messages: parsedBody.messages,
-              model: 'llama-3.1-8b-instant',
-              temperature: 0.7,
-              max_tokens: 2048,
-              stream: true
-            }));
-            
-            groqReq.end();
+            let targetModel = parsedBody.model;
+            if (targetModel === 'gpt-oss' || !targetModel) {
+              targetModel = 'openai/gpt-oss-120b:free';
+            } else if (targetModel === 'llama') {
+              targetModel = 'llama-3.1-8b-instant';
+            }
+
+            let openRouterApiKey = '';
+            if (fs.existsSync(envPath)) {
+               const envContent = fs.readFileSync(envPath, 'utf8');
+               const match = envContent.match(/OPENROUTER_API_KEY=(.*)/);
+               if (match) openRouterApiKey = match[1].trim();
+            }
+
+            const useOpenRouter = targetModel.includes('openai/') || targetModel.includes('openrouter/') || (!groqApiKey && openRouterApiKey);
+
+            if (useOpenRouter) {
+               const orReq = https.request('https://openrouter.ai/api/v1/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${openRouterApiKey}`,
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': 'https://github.com/AryanSingh2k4/CodeBot',
+                    'X-Title': 'CodeBot',
+                  }
+               }, (orRes) => {
+                  res.writeHead(orRes.statusCode || 200, {
+                    'Content-Type': 'text/event-stream',
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive'
+                  });
+                  orRes.pipe(res);
+               });
+
+               orReq.on('error', () => {
+                 res.statusCode = 500;
+                 res.end(JSON.stringify({ error: 'Internal API Error' }));
+               });
+
+               orReq.write(JSON.stringify({
+                 messages: parsedBody.messages,
+                 model: targetModel,
+                 temperature: parsedBody.temperature ?? 0.7,
+                 max_tokens: parsedBody.max_tokens ?? 2048,
+                 stream: true
+               }));
+               
+               orReq.end();
+            } else {
+               const groqReq = https.request('https://api.groq.com/openai/v1/chat/completions', {
+                 method: 'POST',
+                 headers: {
+                   'Authorization': `Bearer ${groqApiKey}`,
+                   'Content-Type': 'application/json'
+                 }
+               }, (groqRes) => {
+                 res.writeHead(groqRes.statusCode || 200, {
+                   'Content-Type': 'text/event-stream',
+                   'Cache-Control': 'no-cache',
+                   'Connection': 'keep-alive'
+                 });
+                 groqRes.pipe(res);
+               });
+               
+               groqReq.on('error', () => {
+                 res.statusCode = 500;
+                 res.end(JSON.stringify({ error: 'Internal API Error' }));
+               });
+               
+               groqReq.write(JSON.stringify({
+                 messages: parsedBody.messages,
+                 model: targetModel,
+                 temperature: parsedBody.temperature ?? 0.7,
+                 max_tokens: parsedBody.max_tokens ?? 2048,
+                 stream: true
+               }));
+               
+               groqReq.end();
+            }
           } catch (err: any) {
             res.statusCode = 500;
             res.end(JSON.stringify({ error: 'An error occurred while processing your request' }));

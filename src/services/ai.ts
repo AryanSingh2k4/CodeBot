@@ -1,11 +1,11 @@
-export async function streamMessage(messages: { role: string, content: string }[], temperature: number, onChunk: (text: string) => void, signal?: AbortSignal) {
+export async function streamMessage(messages: { role: string, content: string }[], temperature: number, model: string, onChunk: (text: string) => void, signal?: AbortSignal) {
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ messages, temperature }),
+      body: JSON.stringify({ messages, temperature, model }),
       signal
     });
 

@@ -32,13 +32,18 @@ export function Composer({
   const [isListening, setIsListening] = useState(false);
   const [recognition, setRecognition] = useState<any>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const modelDropdownRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
+      }
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(event.target as Node)) {
+        setIsModelDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -167,6 +172,40 @@ export function Composer({
         </div>
         
         <div className="flex items-center gap-1.5">
+          {/* Model Selection Dropdown */}
+          <div className="relative flex items-center" ref={modelDropdownRef}>
+            <button 
+              onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+              className="flex items-center gap-0.5 px-2 h-7 rounded-lg hover:bg-background/80 transition-colors text-[11px] font-medium text-muted-foreground hover:text-foreground bg-background/30 border border-border/30"
+              title="Model Selection"
+            >
+              <span className="truncate max-w-[140px] font-mono">{settings.model === 'llama' ? 'llama-3.1-8b-instant' : 'gpt-oss-120b'}</span>
+              <ChevronDown size={11} className={`transition-transform duration-200 opacity-70 ml-0.5 ${isModelDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isModelDropdownOpen && (
+              <div className="absolute bottom-[calc(100%+8px)] right-0 w-32 bg-popover text-popover-foreground rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.15)] border border-border p-1 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                {(['gpt-oss', 'llama'] as const).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => {
+                      updateSettings({ model: m });
+                      setIsModelDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-2.5 py-1.5 text-xs rounded-lg flex items-center justify-between transition-colors ${
+                      (settings.model || 'gpt-oss') === m 
+                        ? 'bg-primary/10 text-primary font-medium' 
+                        : 'hover:bg-muted text-foreground'
+                    }`}
+                  >
+                    <span className="font-mono">{m === 'gpt-oss' ? 'gpt-oss-120b' : 'llama-3.1-8b-instant'}</span>
+                    {(settings.model || 'gpt-oss') === m && <Check size={11} />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Thinking Level Dropdown */}
           <div className="relative flex items-center" ref={dropdownRef}>
             <button 

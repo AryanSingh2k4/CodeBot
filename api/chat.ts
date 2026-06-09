@@ -54,42 +54,90 @@ export default async function handler(req: Request) {
       return new Response(JSON.stringify({ error: 'Prompt exceeds maximum allowed size (8000 chars)' }), { status: 400 });
     }
 
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+    const groqApiKey = process.env.GROQ_API_KEY;
 
-    const completion = await groq.chat.completions.create({
-      messages,
-      model: model || 'llama-3.1-8b-instant',
-      temperature: temperature ?? 0.7,
-      max_tokens: max_tokens || 2048,
-      stream: true,
-    });
+    let targetModel = model;
+    if (targetModel === 'gpt-oss' || !targetModel) {
+      targetModel = 'openai/gpt-oss-120b:free';
+    } else if (targetModel === 'llama') {
+      targetModel = 'llama-3.1-8b-instant';
+    }
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of completion) {
-            const content = chunk.choices[0]?.delta?.content || '';
-            if (content) {
-              const payload = { choices: [{ delta: { content } }] };
-              controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`));
-            }
-          }
-          controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
-          controller.close();
-        } catch (error: any) {
-          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ error: 'Stream error occurred' })}\n\n`));
-          controller.close();
-        }
+    const useOpenRouter = targetModel.includes('openai/') || targetModel.includes('openrouter/') || (!groqApiKey && openRouterApiKey);
+
+    if (useOpenRouter) {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openRouterApiKey}`,
+          'HTTP-Referer': 'https://github.com/AryanSingh2k4/CodeBot',
+          'X-Title': 'CodeBot',
+        },
+        body: JSON.stringify({
+          messages,
+          model: targetModel,
+          temperature: temperature ?? 0.7,
+          max_tokens: max_tokens || 2048,
+          stream: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = (await response.json().catch(() => ({}))) as any;
+        return new Response(JSON.stringify({ error: errData.error?.message || 'OpenRouter API error' }), { 
+          status: response.status,
+          headers: { 'Content-Type': 'application/json' }
+        });
       }
-    });
 
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
-    });
+      return new Response(response.body, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    } else {
+      // Fallback to Groq API
+      const groq = new Groq({ apiKey: groqApiKey });
+
+      const completion = await groq.chat.completions.create({
+        messages,
+        model: targetModel,
+        temperature: temperature ?? 0.7,
+        max_tokens: max_tokens || 2048,
+        stream: true,
+      });
+
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of completion) {
+              const content = chunk.choices[0]?.delta?.content || '';
+              if (content) {
+                const payload = { choices: [{ delta: { content } }] };
+                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`));
+              }
+            }
+            controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+            controller.close();
+          } catch (error: any) {
+            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ error: 'Stream error occurred' })}\n\n`));
+            controller.close();
+          }
+        }
+      });
+
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    }
   } catch (err: any) {
     return new Response(JSON.stringify({ error: 'An error occurred while processing your request' }), { 
       status: 500, 

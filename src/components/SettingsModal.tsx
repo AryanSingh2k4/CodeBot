@@ -51,9 +51,24 @@ export function SettingsModal({
           <section>
             <h3 className="text-sm font-medium text-muted-foreground mb-3">AI Settings</h3>
             <div className="bg-background border border-border rounded-lg p-4 space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Model</span>
-                <span className="text-sm font-medium bg-primary/10 text-primary px-2 py-1 rounded-md">llama-3.1-8b-instant</span>
+              <div className="flex flex-col gap-2">
+                <span className="text-sm text-muted-foreground">Provider Model</span>
+                <div className="grid grid-cols-1 gap-2 mt-1">
+                  <button 
+                    onClick={() => onUpdateSettings({ model: 'gpt-oss' })}
+                    className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${settings.model !== 'llama' ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted'}`}
+                  >
+                    <span className="font-mono text-sm">gpt-oss-120b</span>
+                    {settings.model !== 'llama' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                  </button>
+                  <button 
+                    onClick={() => onUpdateSettings({ model: 'llama' })}
+                    className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${settings.model === 'llama' ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted'}`}
+                  >
+                    <span className="font-mono text-sm">llama-3.1-8b-instant</span>
+                    {settings.model === 'llama' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                  </button>
+                </div>
               </div>
             </div>
           </section>

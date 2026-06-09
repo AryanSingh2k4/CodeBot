@@ -239,7 +239,7 @@ export default function App() {
       let fullText = '';
       
       try {
-        await streamMessage(messagesForModel, temp, (chunkText) => {
+        await streamMessage(messagesForModel, temp, settings.model || 'gpt-oss', (chunkText) => {
           fullText += chunkText;
           const updatedMsgs = [...newMessages];
           updatedMsgs.push({ ...assistantMsg, content: fullText });
