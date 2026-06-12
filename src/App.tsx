@@ -1,30 +1,56 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Menu, Info, Loader2, Monitor, Settings, PanelLeftClose, PanelLeftOpen, Copy, Edit2, RotateCw, ArrowDown, Check, ChevronDown, Plus, MoreVertical, Trash2 } from 'lucide-react';
+import { Menu, Info, Loader2, Monitor, Settings, PanelLeftClose, PanelLeftOpen, Copy, Edit2, RotateCw, ArrowDown, Check, ChevronDown, Plus, MoreVertical, Trash2, User, Code2, GraduationCap, Coffee, Lightbulb, Ghost, Pin, X } from 'lucide-react';
 
 import { Sidebar } from './components/Sidebar';
 import { Composer } from './components/Composer';
 import { MarkdownMessage } from './components/MarkdownMessage';
 import { SettingsModal } from './components/SettingsModal';
+import { AboutModal } from './components/AboutModal';
+import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
 import { streamMessage, generateChatTitle, searchWeb, executeAgenticLoop } from './services/ai';
 import { storage } from './lib/storage';
+import { cn, getInitials } from './lib/utils';
 import { Chat, Message, AppSettings, FileData, RecentFile } from './types';
 import * as pdfjsLib from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
-const Logo = ({ className = "", size = 24 }: { className?: string, size?: number }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    className={className}
-  >
-    <path d="M22.28 11.45c-.17-1.34-.84-2.58-1.92-3.41-.95-.73-2.13-1.12-3.35-1.12-.58 0-1.15.1-1.7.29-.46-1.16-1.3-2.12-2.4-2.73-1.1-.61-2.33-.91-3.58-.87-1.42.04-2.78.58-3.83 1.54-1.05.95-1.74 2.27-1.93 3.69-.17 1.34.02 2.73.54 3.96-.33.15-.65.34-.95.57-1.14.88-1.89 2.19-2.08 3.63-.2 1.45.1 2.92.83 4.18.73 1.25 1.88 2.14 3.23 2.5.6.16 1.23.23 1.85.23 1.27 0 2.52-.39 3.55-1.11 1.05-.73 1.81-1.78 2.16-2.97.26-.03.52-.08.77-.14 1.15-.27 2.19-.89 2.96-1.76.77-.87 1.24-1.96 1.35-3.12.11-1.17-.16-2.35-.76-3.37l-.02-.03c.5-.83.84-1.75.98-2.71v-.01zM11.97 4.16c.86-.01 1.69.21 2.4.63.71.42 1.27 1.02 1.62 1.74-1.61.02-3.17.51-4.52 1.4-.73.47-1.36 1.07-1.85 1.76-1.01 1.39-1.57 3.06-1.62 4.79-.01.12-.03.24-.04.37-.58-1.04-.9-2.22-.92-3.44-.02-1.22.25-2.43.8-3.51.56-1.08 1.38-1.98 2.38-2.61a5.61 5.61 0 0 1 1.75-.76c.01 0 .01 0 0 0zm-5.11 5.3c.77-.66 1.75-1.06 2.79-1.14 1.04-.08 2.07.18 2.95.73l.03.02c-1.1.99-1.94 2.27-2.4 3.73-.24.78-.36 1.6-.33 2.43.07 1.73.68 3.39 1.75 4.75.05.07.11.13.16.19-1.14-.15-2.23-.62-3.14-1.36-.92-.74-1.61-1.73-2-2.85-.38-1.12-.5-2.33-.35-3.51.15-1.18.6-2.29 1.3-3.21a5.77 5.77 0 0 1 1.24-.78zm1.09 9.9c-.43-.72-.67-1.55-.72-2.41-.05-.85.12-1.7.48-2.46.36-.77.89-1.44 1.54-1.95.74.88 1.66 1.57 2.69 2.01.48.21.99.36 1.5.46.52.09 1.05.12 1.58.07 1.71-.16 3.29-.93 4.45-2.18l.06-.06c-.32 1.13-.93 2.14-1.77 2.92-.83.78-1.86 1.29-2.98 1.48-1.11.19-2.26.1-3.32-.26a5.75 5.75 0 0 1-3.51-2.62zm10.23.01c-.81.44-1.73.65-2.65.59a5.35 5.35 0 0 1-2.48-.68 5.61 5.61 0 0 1-2-1.76c1.58-.09 3.09-.64 4.38-1.58.7-.51 1.31-1.15 1.78-1.88 1-1.41 1.5-3.1 1.44-4.83l.02-.04c.69.96 1.06 2.12 1.06 3.31 0 1.18-.32 2.34-.92 3.37-.59 1.03-1.46 1.86-2.5 2.39a5.7 5.7 0 0 1-1.13.25c.01-.01.01-.01 0 0zm1.75-5.26c-.84.6-1.85.93-2.88.94h-.05c-1.02.01-2.03-.27-2.9-.81-.88-.54-1.59-1.32-2.04-2.24l-.02-.04c1.13-1.04 1.95-2.4 2.34-3.88.2-.76.29-1.55.25-2.33-.1-1.73-.76-3.37-1.87-4.7l-.07-.08c1.15.11 2.25.55 3.16 1.25.92.7 1.63 1.65 2.05 2.76.43 1.1.58 2.3.46 3.48-.12 1.18-.6 2.29-1.36 3.19a5.55 5.55 0 0 1-1.07.96zm-1.86-8.7c.39.73.62 1.55.65 2.4.04.85-.11 1.7-.45 2.47a5.54 5.54 0 0 1-1.47 1.96c-.75-.9-1.68-1.61-2.73-2.05-.5-.21-1.02-.35-1.55-.44-.52-.09-1.06-.11-1.59-.05-1.7.19-3.26.98-4.41 2.24l-.06.07c.36-1.12.98-2.12 1.84-2.88.85-.75 1.89-1.24 3.01-1.42 1.12-.17 2.27-.06 3.33.3 1.05.37 1.99 1 2.7 1.82a.09.09 0 0 1 .03-.02z" />
-  </svg>
-);
+import { Logo } from './components/Logo';
+
+const PROMPT_SUGGESTIONS = {
+  write: [
+    "Write a blog post about ",
+    "Draft an email to ",
+    "Write a short story about ",
+    "Create a marketing copy for "
+  ],
+  learn: [
+    "Explain how quantum computing works ",
+    "What is the theory of relativity?",
+    "How does the stock market work?",
+    "Summarize the history of "
+  ],
+  code: [
+    "Write a React component for a ",
+    "How do I sort an array in Python?",
+    "Explain this error: ",
+    "Write a SQL query to "
+  ],
+  life: [
+    "Give me a healthy recipe for ",
+    "Create a 3-day workout plan",
+    "What are some good hobbies for ",
+    "How can I improve my sleep?"
+  ],
+  ai: [
+    "Surprise me with a fun fact about ",
+    "Tell me a joke about ",
+    "Give me a random book recommendation",
+    "What's an interesting paradox?"
+  ]
+};
 
 const SYSTEM_PROMPT = `You are an ultimate "know-it-all" AI assistant. 
 
@@ -43,14 +69,29 @@ export default function App() {
     return false;
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState('');
   const headerMenuRef = useRef<HTMLDivElement>(null);
+  const suggestionRef = useRef<HTMLDivElement>(null);
+  const [openSuggestionDropdown, setOpenSuggestionDropdown] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (suggestionRef.current && !suggestionRef.current.contains(event.target as Node)) {
+        setOpenSuggestionDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const [chats, setChats] = useState<Chat[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [preIncognitoChatId, setPreIncognitoChatId] = useState<string | null>(null);
 
   const [settings, setSettings] = useState<AppSettings>(() => {
     storage.getFiles().then(files => {
@@ -89,6 +130,13 @@ export default function App() {
     navigator.clipboard.writeText(content);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const getTimeOfDay = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'morning';
+    if (hour < 18) return 'afternoon';
+    return 'evening';
   };
 
   const handleScroll = () => {
@@ -147,6 +195,22 @@ export default function App() {
     setChats(prev => [newChat, ...prev]);
     setCurrentChatId(newChat.id);
     storage.saveChat(newChat);
+  };
+
+  const handleNewIncognitoChat = () => {
+    if (currentChat && !currentChat.isIncognito) {
+      setPreIncognitoChatId(currentChatId);
+    }
+    const newChat: Chat = {
+      id: uuidv4(),
+      title: 'Incognito Chat',
+      messages: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      isIncognito: true
+    };
+    setChats(prev => [newChat, ...prev]);
+    setCurrentChatId(newChat.id);
   };
 
   const currentChat = chats.find(c => c.id === currentChatId) || null;
@@ -269,7 +333,9 @@ export default function App() {
       const chat = prev.find(c => c.id === id);
       if (chat) {
         const updatedChat = { ...chat, ...updates, updatedAt: Date.now() };
-        storage.saveChat(updatedChat).catch(console.error);
+        if (!chat.isIncognito) {
+          storage.saveChat(updatedChat).catch(console.error);
+        }
         return prev.map(c => c.id === id ? updatedChat : c);
       }
       return prev;
@@ -352,7 +418,7 @@ export default function App() {
       ];
 
       // Background title generation
-      if (currentChat?.messages.length === 0 && newMessages.length > 0) {
+      if (currentChat?.messages.length === 0 && newMessages.length > 0 && !currentChat?.isIncognito) {
         const firstUserMsgObj = newMessages.find(m => m.role === 'user');
         let titlePromptText = firstUserMsgObj?.content || '';
         if (!titlePromptText && firstUserMsgObj?.attachments && firstUserMsgObj.attachments.length > 0) {
@@ -415,7 +481,7 @@ export default function App() {
 
     const newMessages = [...currentChat.messages, newUserMsg];
     let title = currentChat.title;
-    if (currentChat.messages.length === 0) {
+    if (currentChat.messages.length === 0 && !currentChat.isIncognito) {
       if (input.trim()) {
         title = input.slice(0, 30) + (input.length > 30 ? '...' : '');
       } else if (textFiles.length > 0) {
@@ -490,19 +556,21 @@ export default function App() {
         setSearchQuery={setSearchQuery}
         onRenameChat={handleRenameChat}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenAbout={() => setIsAboutOpen(true)}
+        onOpenPrivacy={() => setIsPrivacyOpen(true)}
+        userName={settings.userName}
       />
 
       <main className="flex-1 flex flex-col relative h-full max-w-full">
         {/* Header */}
-        <header className="h-14 border-b border-border flex items-center px-2 md:px-4 justify-between bg-card/90 backdrop-blur-md z-10 shrink-0">
-          <div className="flex items-center gap-1 md:gap-3 flex-1 min-w-0">
+        <header className="h-14 flex items-center px-2 md:px-4 justify-between bg-transparent z-10 shrink-0 relative">
+          <div className="flex items-center gap-1 md:gap-3 flex-1 min-w-0" ref={headerMenuRef}>
             <button
-              className="p-2 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-colors shrink-0"
+              className="p-2 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-colors shrink-0 md:hidden"
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               title={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
             >
-              <Menu size={24} className="md:hidden" />
-              {isSidebarOpen ? <PanelLeftClose size={24} className="hidden md:block" /> : <PanelLeftOpen size={24} className="hidden md:block" />}
+              <Menu size={24} />
             </button>
             {isEditingTitle ? (
               <input 
@@ -528,55 +596,94 @@ export default function App() {
                 className="bg-transparent border-b border-primary outline-none px-1 py-0.5 text-foreground font-medium text-sm md:text-base w-full max-w-[200px]"
               />
             ) : (
-              <span className="font-medium text-foreground ml-1 md:ml-0 truncate max-w-[200px]">{currentChat?.title || "New Chat"}</span>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-2 relative shrink-0" ref={headerMenuRef}>
-            <button
-              onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
-              className="p-2 -mr-2 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-colors"
-              title="Menu"
-            >
-              <MoreVertical size={20} />
-            </button>
-
-            {isHeaderMenuOpen && (
-              <div className="absolute top-full right-0 mt-2 w-48 bg-popover text-popover-foreground rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-border py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                <button
-                  onClick={() => {
-                    handleNewChat();
-                    setIsHeaderMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2 transition-colors"
+              <div className="relative">
+                <button 
+                  onClick={() => !currentChat?.isIncognito && setIsHeaderMenuOpen(!isHeaderMenuOpen)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors text-foreground font-medium group ${currentChat?.isIncognito ? 'cursor-default' : 'hover:bg-muted'}`}
                 >
-                  <Plus size={16} /> New Chat
+                  <span className="truncate max-w-[200px]">{currentChat?.title || "New Chat"}</span>
+                  {currentChat?.isIncognito && (
+                    <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-muted-foreground/10 text-muted-foreground font-bold uppercase tracking-wider flex items-center gap-1">
+                      <Ghost size={12} /> Incognito
+                    </span>
+                  )}
+                  {!currentChat?.isIncognito && (
+                    <ChevronDown size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />
+                  )}
                 </button>
-                {currentChat && (
-                  <>
+                
+                {isHeaderMenuOpen && (
+                  <div className="absolute top-full left-0 mt-1 w-48 bg-popover text-popover-foreground rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-border py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                     <button
                       onClick={() => {
-                        setIsEditingTitle(true);
-                        setEditTitleValue(currentChat.title);
+                        // Implement Pin Chat functionality
                         setIsHeaderMenuOpen(false);
                       }}
                       className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2 transition-colors"
                     >
-                      <Edit2 size={16} /> Rename Chat
+                      <Pin size={16} /> Pin Chat
                     </button>
-                    <button
-                      onClick={() => {
-                        handleDeleteChat(currentChat.id);
-                        setIsHeaderMenuOpen(false);
-                      }}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted text-destructive flex items-center gap-2 transition-colors"
-                    >
-                      <Trash2 size={16} /> Delete Chat
-                    </button>
-                  </>
+                    {currentChat && (
+                      <>
+                        <button
+                          onClick={() => {
+                            setIsEditingTitle(true);
+                            setEditTitleValue(currentChat.title);
+                            setIsHeaderMenuOpen(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2 transition-colors"
+                        >
+                          <Edit2 size={16} /> Rename Chat
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleDeleteChat(currentChat.id);
+                            setIsHeaderMenuOpen(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted text-destructive flex items-center gap-2 transition-colors"
+                        >
+                          <Trash2 size={16} /> Delete Chat
+                        </button>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
             )}
+          </div>
+          
+           <div className="flex items-center gap-3 shrink-0 ml-4">
+             {currentChat?.isIncognito ? (
+               <button 
+                 onClick={() => {
+                   setChats(prev => prev.filter(c => c.id !== currentChat?.id));
+                   
+                   if (preIncognitoChatId && chats.some(c => c.id === preIncognitoChatId && !c.isIncognito)) {
+                     setCurrentChatId(preIncognitoChatId);
+                   } else {
+                     const normalChats = chats.filter(c => !c.isIncognito && c.id !== currentChat?.id);
+                     if (normalChats.length > 0) {
+                       setCurrentChatId(normalChats[0].id);
+                     } else {
+                       handleNewChat();
+                     }
+                   }
+                   setPreIncognitoChatId(null);
+                 }}
+                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/50 text-foreground hover:bg-muted transition-colors text-sm font-medium border border-border"
+                 title="Turn off Incognito Mode"
+               >
+                 <Ghost size={16} /> <span className="hidden md:inline">Incognito Active</span>
+               </button>
+             ) : (
+               <button 
+                 onClick={handleNewIncognitoChat}
+                 className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                 title="Open Incognito Mode"
+               >
+                 <Ghost size={20} />
+               </button>
+             )}
           </div>
         </header>
 
@@ -584,19 +691,10 @@ export default function App() {
         <div 
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto pb-40 scroll-smooth relative"
+          className={cn("flex-1 overflow-y-auto scroll-smooth relative", currentChat?.messages.length === 0 ? "hidden" : "pb-40")}
         >
           <div className="max-w-3xl mx-auto px-4 pt-8 pb-4">
-            {currentChat?.messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center mt-32 space-y-4">
-                <Logo size={56} className="mb-2 shadow-md" />
-                <h2 className="text-xl font-medium mt-4 mb-2 text-foreground">How can I help you today?</h2>
-                <p className="text-muted-foreground max-w-md mx-auto">
-                  Your ultimate AI companion with expert-level knowledge across coding, science, history, and beyond.
-                </p>
-              </div>
-            ) : (
-              currentChat?.messages.map(msg => (
+            {currentChat?.messages.map(msg => (
                 <div key={msg.id} className={`group flex gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'} mb-6`}>
                   {msg.role !== 'user' && (
                     <div className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center bg-white text-black border border-gray-200 mt-1">
@@ -657,13 +755,13 @@ export default function App() {
                   </div>
                 </div>
               ))
-            )}
+            }
             <div ref={messagesEndRef} />
           </div>
         </div>
 
         {/* Floating Scroll Button */}
-        {showScrollButton && (
+        {showScrollButton && (currentChat?.messages?.length || 0) > 0 && (
           <button 
             onClick={scrollToBottom}
             className="absolute bottom-36 left-1/2 -translate-x-1/2 z-20 p-2 bg-card border border-border shadow-md rounded-full text-foreground hover:bg-muted transition-colors"
@@ -673,8 +771,21 @@ export default function App() {
           </button>
         )}
 
-        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-background via-background to-transparent pt-6 px-0 md:px-8">
-          <div className="max-w-3xl mx-auto">
+        <div className={cn(
+          "w-full transition-all duration-300 px-0 md:px-8",
+          currentChat?.messages.length === 0 
+            ? "flex-1 flex flex-col items-center justify-center mt-[-5vh]" 
+            : "absolute bottom-0 inset-x-0 bg-gradient-to-t from-background via-background to-transparent pt-6"
+        )}>
+          {currentChat?.messages.length === 0 && (
+            <div className="flex flex-col items-center mb-8 px-4 w-full">
+              <Logo size={64} className="text-primary mb-6 drop-shadow-sm" />
+              <h2 className="text-3xl md:text-4xl font-serif text-foreground font-medium text-center tracking-tight">
+                Good {getTimeOfDay()}{settings.userName ? `, ${settings.userName.split(' ')[0]}` : ''}
+              </h2>
+            </div>
+          )}
+          <div className="max-w-3xl mx-auto w-full">
             <Composer
               input={input}
               setInput={setInput}
@@ -693,9 +804,64 @@ export default function App() {
               settings={settings}
               updateSettings={updateSettings}
             />
-            <div className="text-center text-[9px] md:text-xs tracking-tight text-muted-foreground/60 mb-2 md:mb-4 px-1 md:px-4">
+            <div className={cn("text-center text-[9px] md:text-xs tracking-tight text-muted-foreground/60 px-1 md:px-4", currentChat?.messages.length === 0 ? "mt-4" : "mb-2 md:mb-4")}>
               AI models can make mistakes. Consider verifying important information.
             </div>
+            
+            {currentChat?.messages.length === 0 && (
+              <div ref={suggestionRef} className="mt-6 mx-2 md:mx-4 relative">
+                {/* Static Badges Row */}
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <button onClick={() => setOpenSuggestionDropdown('write')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border/60 bg-card hover:bg-muted text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    <Edit2 size={14} /> Write
+                  </button>
+                  <button onClick={() => setOpenSuggestionDropdown('learn')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border/60 bg-card hover:bg-muted text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    <GraduationCap size={14} /> Learn
+                  </button>
+                  <button onClick={() => setOpenSuggestionDropdown('code')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border/60 bg-card hover:bg-muted text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    <Code2 size={14} /> Code
+                  </button>
+                  <button onClick={() => setOpenSuggestionDropdown('life')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border/60 bg-card hover:bg-muted text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    <Coffee size={14} /> Life stuff
+                  </button>
+                  <button onClick={() => setOpenSuggestionDropdown('ai')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border/60 bg-card hover:bg-muted text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    <Lightbulb size={14} /> AI's choice
+                  </button>
+                </div>
+
+                {/* Absolute Positioning for the Dropdown Panel */}
+                {openSuggestionDropdown && (
+                  <div className="absolute top-[calc(100%+8px)] inset-x-0 mx-auto w-full z-50">
+                    <div className="bg-[#1e1e1e]/95 backdrop-blur-md border border-border/40 rounded-2xl overflow-hidden shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
+                        <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
+                          {openSuggestionDropdown === 'write' && <Edit2 size={14} />}
+                          {openSuggestionDropdown === 'learn' && <GraduationCap size={14} />}
+                          {openSuggestionDropdown === 'code' && <Code2 size={14} />}
+                          {openSuggestionDropdown === 'life' && <Coffee size={14} />}
+                          {openSuggestionDropdown === 'ai' && <Lightbulb size={14} />}
+                          <span className="capitalize">{openSuggestionDropdown === 'life' ? 'Life stuff' : openSuggestionDropdown === 'ai' ? "AI's choice" : openSuggestionDropdown}</span>
+                        </div>
+                        <button onClick={() => setOpenSuggestionDropdown(null)} className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted transition-colors">
+                          <X size={16} />
+                        </button>
+                      </div>
+                      <div className="flex flex-col">
+                        {PROMPT_SUGGESTIONS[openSuggestionDropdown as keyof typeof PROMPT_SUGGESTIONS].map((prompt, i) => (
+                          <button 
+                            key={i} 
+                            onClick={() => { setInput(prompt); setOpenSuggestionDropdown(null); }} 
+                            className="text-left px-4 py-3 text-sm text-foreground/90 hover:text-foreground hover:bg-muted/50 transition-colors border-b border-border/40 last:border-0"
+                          >
+                            {prompt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -706,6 +872,14 @@ export default function App() {
         settings={settings}
         onUpdateSettings={s => setSettings({ ...settings, ...s })}
         onClearChats={handleClearChats}
+      />
+      <AboutModal
+        isOpen={isAboutOpen}
+        onClose={() => setIsAboutOpen(false)}
+      />
+      <PrivacyPolicyModal
+        isOpen={isPrivacyOpen}
+        onClose={() => setIsPrivacyOpen(false)}
       />
     </div>
   );

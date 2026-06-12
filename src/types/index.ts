@@ -13,6 +13,7 @@ export interface Chat {
   messages: Message[];
   updatedAt: number;
   createdAt: number;
+  isIncognito?: boolean;
 }
 
 export interface AppSettings {
@@ -20,6 +21,7 @@ export interface AppSettings {
   persona?: string;
   thinkingLevel?: 'low' | 'medium' | 'high';
   model?: 'openai/gpt-oss-120b' | 'llama-3.3-70b-versatile' | 'llama-3.1-8b-instant';
+  userName?: string;
 }
 
 export interface FileData {

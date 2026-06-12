@@ -31,6 +31,21 @@ export function SettingsModal({
         
         <div className="p-6 overflow-y-auto space-y-6">
           <section>
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 ml-1">Profile</h3>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="userName" className="text-sm font-medium ml-1">Your Name</label>
+              <input
+                id="userName"
+                type="text"
+                placeholder="How should we call you?"
+                value={settings.userName || ''}
+                onChange={(e) => onUpdateSettings({ userName: e.target.value })}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary transition-colors text-foreground"
+              />
+            </div>
+          </section>
+
+          <section>
             <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 ml-1">Appearance</h3>
             <div className="grid grid-cols-2 gap-3">
               <button 

@@ -197,7 +197,7 @@ export function Composer({
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={isListening ? "Listening... Speak now" : "Write a message..."}
+          placeholder={isListening ? "Listening... Speak now" : "How can I help you today?"}
           className={`w-full max-h-[140px] md:max-h-[200px] min-h-[24px] bg-transparent resize-none outline-none text-foreground placeholder:text-muted-foreground py-1 text-[15px] md:text-base ${isListening ? 'pr-28' : ''}`}
           rows={1}
         />
